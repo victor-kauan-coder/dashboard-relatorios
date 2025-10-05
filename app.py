@@ -58,7 +58,7 @@ def carregar_dados():
 st.title("📊 Dashboard de Relatórios e Presenças")
 st.markdown("---")
 df = carregar_dados()
-st.sidebar.image("pet-logo.png", width=150) # <--- ADICIONE ESTA LINHA
+st.sidebar.image("pet-logo.png", width=120) # <--- ADICIONE ESTA LINHA
 if not df.empty:
     st.sidebar.header("Filtros:")
     monitores = sorted(df['Nome do monitor'].unique())
