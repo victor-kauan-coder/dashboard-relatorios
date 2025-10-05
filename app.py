@@ -97,7 +97,7 @@ if not df.empty:
             
             with st.expander("Atividade(s) Realizada(s)"):
                 st.write(relatorio_completo['ATIVIDADE(S) REALIZADA(S)'])
-            with st.expander("Atividade(s) Realizada(s)"):
+            with st.expander("Objetivo Da(s) Atividade(s)"):
                 st.write(relatorio_completo['OBJETIVO DA(S) ATIVIDADE(S)'])    
             with st.expander("Relato com Fundamentação Teórica"):
                 st.write(relatorio_completo['RELATO COM FUNDAMENTAÇÃO TEÓRICA'])
