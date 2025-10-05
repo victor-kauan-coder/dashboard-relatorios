@@ -12,7 +12,7 @@ st.set_page_config(page_title="Dashboard de Relatórios", layout="wide")
 URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1foi-8QcpCwqgB_MkFKRyZ-FXFWAGQ4eUgHz2uqO2VvU/edit?resourcekey=&gid=526405481#gid=526405481"
 
 # --- FUNÇÃO PARA CARREGAR DADOS (COM LÓGICA PARA ONLINE E LOCAL) ---
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=60)
 def carregar_dados():
     try:
         scopes = [
