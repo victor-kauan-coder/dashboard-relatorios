@@ -107,8 +107,12 @@ if not df.empty:
             indice_selecionado = opcoes_relatorios.index(relatorio_escolhido)
             id_real = df_filtrado.index[indice_selecionado]
             relatorio_completo = df.loc[id_real]
+            tutores = relatorio_completo.get('tutores presentes')
+
+            # Verifica se o valor é nulo (NaN) ou se é um texto vazio ''
+            texto_tutores = 'Nenhuma' if pd.isna(tutores) or tutores == '' else tutores
             st.subheader(f"Relatório de: {relatorio_completo['Nome do monitor']}")
-            st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {'nenhuma' if relatorio_completo['tutores presentes'].isnull() else relatorio_completo['tutores presentes']}")
+            st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {texto_tutores}")
             
             with st.expander("Atividade(s) Realizada(s)"):
                 st.write(relatorio_completo['ATIVIDADE(S) REALIZADA(S)'])
