@@ -9,6 +9,20 @@ import sys
 
 # --- CONFIGURAÇÕES ---
 st.set_page_config(page_title="Dashboard de Relatórios", layout="wide",page_icon="pet-logo.png")
+st.markdown(
+    """
+    <style>
+        div[data-testid="stSidebarUserContent"] {
+            padding-top: 1rem;
+        }
+        
+        div[data-testid="stSidebarUserContent"] img {
+            margin-top: -50px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1foi-8QcpCwqgB_MkFKRyZ-FXFWAGQ4eUgHz2uqO2VvU/edit?resourcekey=&gid=526405481#gid=526405481"
 
 # --- FUNÇÃO PARA CARREGAR DADOS (COM LÓGICA PARA ONLINE E LOCAL) ---
