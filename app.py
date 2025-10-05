@@ -1,4 +1,4 @@
-# app.py (Versão Final Corrigida)
+# app.py (Versão final correta para funcionar ONLINE e LOCALMENTE)
 import streamlit as st
 import pandas as pd
 import gspread
@@ -7,21 +7,11 @@ import traceback
 import os
 import sys
 
-# --- FUNÇÃO CRÍTICA PARA O EXECUTÁVEL ---
-def resource_path(relative_path):
-    """ Obtém o caminho absoluto para o recurso, funciona para dev e para o executável """
-    try:
-        # PyInstaller/cx_Freeze cria uma pasta temp e armazena o caminho em _MEIPASS
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
-
 # --- CONFIGURAÇÕES ---
 st.set_page_config(page_title="Dashboard de Relatórios", layout="wide")
 URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1foi-8QcpCwqgB_MkFKRyZ-FXFWAGQ4eUgHz2uqO2VvU/edit?resourcekey=&gid=526405481#gid=526405481"
 
-# --- FUNÇÃO PARA CARREGAR DADOS (COM CAMINHO CORRIGIDO) ---
+# --- FUNÇÃO PARA CARREGAR DADOS (COM LÓGICA PARA ONLINE E LOCAL) ---
 @st.cache_data(ttl=600)
 def carregar_dados():
     try:
@@ -30,9 +20,15 @@ def carregar_dados():
             "https://www.googleapis.com/auth/drive.file"
         ]
         
-        # --- MUDANÇA IMPORTANTE APLICADA AQUI ---
-        caminho_credenciais = resource_path("credentials.json")
-        creds = Credentials.from_service_account_file(caminho_credenciais, scopes=scopes)
+        # --- LÓGICA INTELIGENTE PARA AS CREDENCIAIS ---
+        # Tenta ler a partir dos Secrets do Streamlit (quando está online)
+        if st.secrets.has_key("gcp_service_account"):
+            creds_dict = st.secrets["gcp_service_account"]
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        # Se não conseguir, lê a partir do arquivo local (para desenvolvimento no seu PC)
+        else:
+            creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        
         client = gspread.authorize(creds)
         
         sheet = client.open_by_url(URL_DA_PLANILHA).sheet1
@@ -52,12 +48,10 @@ def carregar_dados():
         else:
             st.warning("A planilha está vazia ou não contém dados.")
             return pd.DataFrame()
+            
     except Exception as e:
-        if isinstance(e, FileNotFoundError) and 'credentials.json' in str(e):
-             st.error("ERRO CRÍTICO: O arquivo 'credentials.json' não foi encontrado pelo executável. Verifique o setup.py.")
-        else:
-            st.error("Ocorreu um erro detalhado ao tentar carregar os dados:")
-            st.code(traceback.format_exc())
+        st.error("Ocorreu um erro ao carregar os dados. Verifique os logs ou a configuração dos Secrets.")
+        st.code(traceback.format_exc())
         return pd.DataFrame()
 
 # --- O RESTO DA INTERFACE (NÃO PRECISA MUDAR) ---
