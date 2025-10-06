@@ -35,12 +35,12 @@ def carregar_dados():
             "https://www.googleapis.com/auth/drive.file"
         ]
         
-        # --- LÓGICA INTELIGENTE PARA AS CREDENCIAIS (COM CORREÇÃO FINAL) ---
         if "gcp_service_account" in st.secrets:
-            creds_dict = st.secrets["gcp_service_account"]
+            # --- LINHA CORRIGIDA AQUI ---
+            # Cria uma cópia editável (um dicionário normal) a partir dos secrets
+            creds_dict = dict(st.secrets["gcp_service_account"])
             
-            # --- LINHA DE CORREÇÃO FINAL E DEFINITIVA ---
-            # Encontra os caracteres literais '\\n' e os substitui por quebras de linha reais '\n'
+            # Agora podemos modificar a cópia sem erro
             creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
             
             creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
