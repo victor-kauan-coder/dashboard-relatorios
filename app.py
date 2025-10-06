@@ -26,6 +26,7 @@ st.markdown(
 URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE7t3kJy3Wxaw5APSVomBVOA/edit?usp=sharing"
 
 # --- FUNÇÃO PARA CARREGAR DADOS (COM LÓGICA PARA ONLINE E LOCAL) ---
+
 @st.cache_data(ttl=60)
 def carregar_dados():
     try:
@@ -34,12 +35,15 @@ def carregar_dados():
             "https://www.googleapis.com/auth/drive.file"
         ]
         
-        # --- LÓGICA INTELIGENTE PARA AS CREDENCIAIS ---
-        # Tenta ler a partir dos Secrets do Streamlit (quando está online)
-        if st.secrets.has_key("gcp_service_account"):
+        # --- LÓGICA INTELIGENTE PARA AS CREDENCIAIS (COM CORREÇÃO FINAL) ---
+        if "gcp_service_account" in st.secrets:
             creds_dict = st.secrets["gcp_service_account"]
+            
+            # --- LINHA DE CORREÇÃO FINAL E DEFINITIVA ---
+            # Encontra os caracteres literais '\\n' e os substitui por quebras de linha reais '\n'
+            creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            
             creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        # Se não conseguir, lê a partir do arquivo local (para desenvolvimento no seu PC)
         else:
             creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
         
