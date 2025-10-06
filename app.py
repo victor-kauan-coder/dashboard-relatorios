@@ -120,13 +120,16 @@ if not df.empty:
             texto_tutores = 'Nenhuma' if pd.isna(tutores) or tutores == '' else tutores
             st.subheader(f"Relatório de: {relatorio_completo['Nome do monitor']}")
             st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {texto_tutores}")
-            
+            st.write(f"**Horário:** {relatorio_completo['Horário de Início']}")
+            st.write(f"**Local:** {relatorio_completo['Local Específico:']}")
             with st.expander("Atividade(s) Realizada(s)"):
                 st.write(relatorio_completo['ATIVIDADE(S) REALIZADA(S)'])
             with st.expander("Objetivo Da(s) Atividade(s)"):
                 st.write(relatorio_completo['OBJETIVO DA(S) ATIVIDADE(S)'])    
             with st.expander("Relato com Fundamentação Teórica"):
                 st.write(relatorio_completo['RELATO COM FUNDAMENTAÇÃO TEÓRICA'])
+            with st.expander("Referências"):
+                st.write(relatorio_completo['REFERÊNCIAS'])    
             with st.expander("Reflexões Críticas"):
                 st.write(relatorio_completo['REFLEXÕES CRÍTICAS'])
     else:
