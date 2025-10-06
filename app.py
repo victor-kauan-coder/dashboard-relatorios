@@ -23,7 +23,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1foi-8QcpCwqgB_MkFKRyZ-FXFWAGQ4eUgHz2uqO2VvU/edit?resourcekey=&gid=526405481#gid=526405481"
+URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE7t3kJy3Wxaw5APSVomBVOA/edit?resourcekey=&gid=610842653#gid=610842653"
 
 # --- FUNÇÃO PARA CARREGAR DADOS (COM LÓGICA PARA ONLINE E LOCAL) ---
 @st.cache_data(ttl=60)
