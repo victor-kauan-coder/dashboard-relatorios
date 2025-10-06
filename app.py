@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 import traceback
 import os
 import sys
+from streamlit.errors import StreamlitSecretNotFoundError
 
 # --- CONFIGURAÇÕES ---
 st.set_page_config(page_title="Dashboard de Relatórios", layout="wide",page_icon="pet-logo.png")
@@ -28,6 +29,7 @@ URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE
 # --- FUNÇÃO PARA CARREGAR DADOS (COM LÓGICA PARA ONLINE E LOCAL) ---
 
 @st.cache_data(ttl=60)
+
 def carregar_dados():
     try:
         scopes = [
@@ -35,18 +37,20 @@ def carregar_dados():
             "https://www.googleapis.com/auth/drive.file"
         ]
         
-        if "gcp_service_account" in st.secrets:
-            # --- LINHA CORRIGIDA AQUI ---
-            # Cria uma cópia editável (um dicionário normal) a partir dos secrets
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            
-            # Agora podemos modificar a cópia sem erro
-            creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
-            
-            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        else:
+        # --- LÓGICA DE CREDENCIAIS CORRIGIDA E FINAL ---
+        try:
+            # Tenta usar os Secrets primeiro (para a nuvem)
+            if "gcp_service_account" in st.secrets:
+                creds_dict = dict(st.secrets["gcp_service_account"])
+                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+                creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            else:
+                # Se não houver o secret específico, usa o ficheiro local
+                creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        except StreamlitSecretNotFoundError:
+            # Se o ficheiro de secrets NEM EXISTE, usa o ficheiro local
             creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
-        
+
         client = gspread.authorize(creds)
         
         sheet = client.open_by_url(URL_DA_PLANILHA).sheet1
@@ -71,7 +75,6 @@ def carregar_dados():
         st.error("Ocorreu um erro ao carregar os dados. Verifique os logs ou a configuração dos Secrets.")
         st.code(traceback.format_exc())
         return pd.DataFrame()
-
 # --- O RESTO DA INTERFACE (NÃO PRECISA MUDAR) ---
 st.title("📊 Dashboard de Relatórios e Presenças")
 st.markdown("---")
