@@ -98,8 +98,14 @@ if not df.empty:
     if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
         data_min = df['Data da atividade'].min().date()
         data_max = df['Data da atividade'].max().date()
-        # ALTERADO: Formato de exibição da data para dd/mm/yy
-        data_selecionada = st.sidebar.date_input("Selecione o Período:", value=(data_min, data_max), min_value=data_min, format="DD/MM/YY")
+        # CORRIGIDO: Adicionado max_value para resolver o erro da API
+        data_selecionada = st.sidebar.date_input(
+            "Selecione o Período:", 
+            value=(data_min, data_max), 
+            min_value=data_min, 
+            max_value=data_max, 
+            format="DD/MM/YY"
+        )
         if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
             data_inicio, data_fim = data_selecionada
         else:
