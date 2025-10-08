@@ -50,6 +50,10 @@ def carregar_dados():
         except StreamlitSecretNotFoundError:
             # Se o ficheiro de secrets NEM EXISTE, usa o ficheiro local
             creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        except FileNotFoundError:
+            st.error("O arquivo 'credentials.json' não foi encontrado. Certifique-se de que ele está no diretório correto para execução local.")
+            return pd.DataFrame()
+
 
         client = gspread.authorize(creds)
         
@@ -84,7 +88,7 @@ def carregar_dados():
         st.code(traceback.format_exc())
         return pd.DataFrame()
 
-# --- O RESTO DA INTERFACE (NÃO PRECISA MUDAR) ---
+# --- O RESTO DA INTERFACE ---
 st.title("📊 Dashboard de Relatórios e Presenças")
 st.markdown("---")
 df = carregar_dados()
@@ -95,23 +99,35 @@ if not df.empty:
     monitor_selecionado = st.sidebar.multiselect("Selecione o Monitor:", options=monitores, default=[])
     preceptores = sorted(df['Nome do preceptor'].unique())
     preceptor_selecionado = st.sidebar.multiselect("Selecione o(a) Preceptor(a):", options=preceptores, default=[])
+    
+    data_inicio, data_fim = None, None
     if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
         data_min = df['Data da atividade'].min().date()
         data_max = df['Data da atividade'].max().date()
-        # CORRIGIDO: Adicionado max_value para resolver o erro da API
-        data_selecionada = st.sidebar.date_input(
-            "Selecione o Período:", 
-            value=(data_min, data_max), 
-            min_value=data_min, 
-            max_value=data_max, 
-            format="DD/MM/YY"
-        )
-        if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
-            data_inicio, data_fim = data_selecionada
+
+        # CORRIGIDO: Trata o caso de haver apenas um dia de dados para evitar o erro da API
+        if data_min >= data_max:
+            st.sidebar.date_input(
+                "Data dos Relatórios:",
+                value=data_min,
+                disabled=True,
+                format="DD/MM/YY"
+            )
+            data_inicio, data_fim = data_min, data_max
         else:
-            data_inicio, data_fim = None, None
-    else:
-        data_inicio, data_fim = None, None
+            data_selecionada = st.sidebar.date_input(
+                "Selecione o Período:", 
+                value=(data_min, data_max), 
+                min_value=data_min, 
+                max_value=data_max, 
+                format="DD/MM/YY"
+            )
+            if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
+                data_inicio, data_fim = data_selecionada
+            else:
+                # Se o intervalo não estiver completo (ex: usuário limpou uma data), não filtra
+                data_inicio, data_fim = None, None
+
     df_filtrado = df.copy()
     if monitor_selecionado:
         df_filtrado = df_filtrado[df_filtrado['Nome do monitor'].isin(monitor_selecionado)]
@@ -119,12 +135,12 @@ if not df.empty:
         df_filtrado = df_filtrado[df_filtrado['Nome do preceptor'].isin(preceptor_selecionado)]
     if data_inicio and data_fim:
         df_filtrado = df_filtrado[(df_filtrado['Data da atividade'].dt.date >= data_inicio) & (df_filtrado['Data da atividade'].dt.date <= data_fim)]
+    
     st.header(f"Relatórios Encontrados: {len(df_filtrado)}")
     st.dataframe(df_filtrado)
     st.markdown("---")
     st.header("Visualizar Relatório Detalhado")
     if not df_filtrado.empty:
-        # ALTERADO: Formato de exibição da data para dd/mm/yy
         opcoes_relatorios = [f"{row['Data da atividade'].strftime('%d/%m/%y')} - {row['Nome do monitor']}" for index, row in df_filtrado.iterrows()]
         relatorio_escolhido = st.selectbox("Selecione um relatório para ler os detalhes:", options=opcoes_relatorios)
         if relatorio_escolhido:
@@ -133,18 +149,12 @@ if not df.empty:
             relatorio_completo = df.loc[id_real]
             tutores = relatorio_completo.get('tutores presentes')
 
-            # Verifica se o valor é nulo (NaN) ou se é um texto vazio ''
             texto_tutores = 'Nenhuma' if pd.isna(tutores) or tutores == '' else tutores
-            
-            # ADICIONADO: Trata a exibição do horário caso o valor seja nulo ou inválido
             horario = relatorio_completo.get('Horário de Início')
             texto_horario = 'Não informado' if pd.isna(horario) or horario == '' else horario
             
             st.subheader(f"Relatório de: {relatorio_completo['Nome do monitor']}")
-            # ALTERADO: Formato de exibição da data para dd/mm/yy
             st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {texto_tutores}")
-            
-            # ALTERADO: Usa a variável tratada para exibir o horário
             st.write(f"**Horário:** {texto_horario}")
             st.write(f"**Local:** {relatorio_completo['Local Específico:']}")
             
