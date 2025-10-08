@@ -1,12 +1,22 @@
-# app.py (Versão final corrigida)
+# app.py (Versão final com pt-BR)
 import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import traceback
+import locale
 from streamlit.errors import StreamlitSecretNotFoundError
 
-# --- CONFIGURAções ---
+# --- CONFIGURA LOCALE PARA PORTUGUÊS BRASIL ---
+try:
+    locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")  # Linux/macOS
+except:
+    try:
+        locale.setlocale(locale.LC_ALL, "Portuguese_Brazil.1252")  # Windows
+    except:
+        pass  # Se não conseguir, segue padrão do sistema
+
+# --- CONFIGURAÇÕES ---
 st.set_page_config(
     page_title="Dashboard de Relatórios",
     layout="wide",
@@ -65,7 +75,7 @@ def carregar_dados():
             # Corrige datas
             if 'Data da atividade' in dados.columns:
                 dados['Data da atividade'] = pd.to_datetime(
-                    dados['Data da atividade'], errors='coerce', dayfirst=False
+                    dados['Data da atividade'], errors='coerce', dayfirst=True
                 )
                 dados.dropna(subset=['Data da atividade'], inplace=True)
             
@@ -106,12 +116,13 @@ if not df.empty:
 
         # Caso de apenas um dia
         if data_min >= data_max:
-            st.sidebar.date_input(
+            unica_data = st.sidebar.date_input(
                 "Data dos Relatórios:",
                 value=data_min,
                 disabled=True
             )
-            data_inicio, data_fim = data_min, data_max
+            data_inicio, data_fim = unica_data, unica_data
+            st.sidebar.write("📅 Selecionada:", unica_data.strftime("%d/%m/%Y"))
         else:
             data_selecionada = st.sidebar.date_input(
                 "Selecione o Período:", 
@@ -119,8 +130,12 @@ if not df.empty:
                 min_value=data_min, 
                 max_value=data_max
             )
+
             if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
                 data_inicio, data_fim = data_selecionada
+                st.sidebar.write(
+                    f"📅 Período selecionado: {data_inicio.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')}"
+                )
 
     # --- FILTROS ---
     df_filtrado = df.copy()
