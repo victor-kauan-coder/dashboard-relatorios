@@ -133,9 +133,7 @@ if not df.empty:
 
             if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
                 data_inicio, data_fim = data_selecionada
-                st.sidebar.write(
-                    f"📅 Período selecionado: {data_inicio.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')}"
-                )
+
 
     # --- FILTROS ---
     df_filtrado = df.copy()
