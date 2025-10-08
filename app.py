@@ -8,7 +8,7 @@ import os
 import sys
 from streamlit.errors import StreamlitSecretNotFoundError
 
-# --- CONFIGURAÇÕES ---
+# --- CONFIGURAções ---
 st.set_page_config(page_title="Dashboard de Relatórios", layout="wide",page_icon="pet-logo.png")
 st.markdown(
     """
@@ -62,10 +62,18 @@ def carregar_dados():
             dados = pd.DataFrame(data, columns=header)
             dados.columns = dados.columns.str.strip()
             
+            # Trata a coluna de data para o formato correto
             if 'Data da atividade' in dados.columns:
                 dados['Data da atividade'] = pd.to_datetime(dados['Data da atividade'], errors='coerce', dayfirst=True)
                 dados.dropna(subset=['Data da atividade'], inplace=True)
             
+            # ADICIONADO: Trata a coluna de horário para garantir o formato 24h (HH:MM)
+            if 'Horário de Início' in dados.columns:
+                # Converte para objeto datetime, o que permite ler vários formatos (ex: 2 PM, 14:00)
+                temp_time = pd.to_datetime(dados['Horário de Início'], errors='coerce')
+                # Formata para string no padrão HH:MM. Horas inválidas se tornarão NaT (Not a Time)
+                dados['Horário de Início'] = temp_time.dt.strftime('%H:%M')
+
             return dados
         else:
             st.warning("A planilha está vazia ou não contém dados.")
@@ -75,11 +83,12 @@ def carregar_dados():
         st.error("Ocorreu um erro ao carregar os dados. Verifique os logs ou a configuração dos Secrets.")
         st.code(traceback.format_exc())
         return pd.DataFrame()
+
 # --- O RESTO DA INTERFACE (NÃO PRECISA MUDAR) ---
 st.title("📊 Dashboard de Relatórios e Presenças")
 st.markdown("---")
 df = carregar_dados()
-st.sidebar.image("banner-pet.png", width=300) # <--- ADICIONE ESTA LINHA
+st.sidebar.image("banner-pet.png", width=300) 
 if not df.empty:
     st.sidebar.header("Filtros:")
     monitores = sorted(df['Nome do monitor'].unique())
@@ -118,18 +127,26 @@ if not df.empty:
 
             # Verifica se o valor é nulo (NaN) ou se é um texto vazio ''
             texto_tutores = 'Nenhuma' if pd.isna(tutores) or tutores == '' else tutores
+            
+            # ADICIONADO: Trata a exibição do horário caso o valor seja nulo ou inválido
+            horario = relatorio_completo.get('Horário de Início')
+            texto_horario = 'Não informado' if pd.isna(horario) or horario == '' else horario
+            
             st.subheader(f"Relatório de: {relatorio_completo['Nome do monitor']}")
             st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {texto_tutores}")
-            st.write(f"**Horário:** {relatorio_completo['Horário de Início']}")
+            
+            # ALTERADO: Usa a variável tratada para exibir o horário
+            st.write(f"**Horário:** {texto_horario}")
             st.write(f"**Local:** {relatorio_completo['Local Específico:']}")
+            
             with st.expander("Atividade(s) Realizada(s)"):
                 st.write(relatorio_completo['ATIVIDADE(S) REALIZADA(S)'])
             with st.expander("Objetivo Da(s) Atividade(s)"):
-                st.write(relatorio_completo['OBJETIVO DA(S) ATIVIDADE(S)'])    
+                st.write(relatorio_completo['OBJETIVO DA(S) ATIVIDADE(S)'])      
             with st.expander("Relato com Fundamentação Teórica"):
                 st.write(relatorio_completo['RELATO COM FUNDAMENTAÇÃO TEÓRICA'])
             with st.expander("Referências"):
-                st.write(relatorio_completo['REFERÊNCIAS'])    
+                st.write(relatorio_completo['REFERÊNCIAS'])      
             with st.expander("Reflexões Críticas"):
                 st.write(relatorio_completo['REFLEXÕES CRÍTICAS'])
     else:
