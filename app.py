@@ -62,9 +62,9 @@ def carregar_dados():
             dados = pd.DataFrame(data, columns=header)
             dados.columns = dados.columns.str.strip()
             
-            # Trata a coluna de data para o formato correto
+            # Trata a coluna de data para o formato correto (lendo mm/dd/yyyy)
             if 'Data da atividade' in dados.columns:
-                dados['Data da atividade'] = pd.to_datetime(dados['Data da atividade'], errors='coerce', dayfirst=True)
+                dados['Data da atividade'] = pd.to_datetime(dados['Data da atividade'], errors='coerce', dayfirst=False)
                 dados.dropna(subset=['Data da atividade'], inplace=True)
             
             # ADICIONADO: Trata a coluna de horário para garantir o formato 24h (HH:MM)
@@ -98,7 +98,8 @@ if not df.empty:
     if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
         data_min = df['Data da atividade'].min().date()
         data_max = df['Data da atividade'].max().date()
-        data_selecionada = st.sidebar.date_input("Selecione o Período:", value=(data_min, data_max), min_value=data_min, format="DD/MM/YYYY")
+        # ALTERADO: Formato de exibição da data para dd/mm/yy
+        data_selecionada = st.sidebar.date_input("Selecione o Período:", value=(data_min, data_max), min_value=data_min, format="DD/MM/YY")
         if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
             data_inicio, data_fim = data_selecionada
         else:
@@ -117,7 +118,8 @@ if not df.empty:
     st.markdown("---")
     st.header("Visualizar Relatório Detalhado")
     if not df_filtrado.empty:
-        opcoes_relatorios = [f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}" for index, row in df_filtrado.iterrows()]
+        # ALTERADO: Formato de exibição da data para dd/mm/yy
+        opcoes_relatorios = [f"{row['Data da atividade'].strftime('%d/%m/%y')} - {row['Nome do monitor']}" for index, row in df_filtrado.iterrows()]
         relatorio_escolhido = st.selectbox("Selecione um relatório para ler os detalhes:", options=opcoes_relatorios)
         if relatorio_escolhido:
             indice_selecionado = opcoes_relatorios.index(relatorio_escolhido)
@@ -133,7 +135,8 @@ if not df.empty:
             texto_horario = 'Não informado' if pd.isna(horario) or horario == '' else horario
             
             st.subheader(f"Relatório de: {relatorio_completo['Nome do monitor']}")
-            st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {texto_tutores}")
+            # ALTERADO: Formato de exibição da data para dd/mm/yy
+            st.write(f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%y')} | **Preceptor(a):** {relatorio_completo['Nome do preceptor']} | **Tutoras presentes:** {texto_tutores}")
             
             # ALTERADO: Usa a variável tratada para exibir o horário
             st.write(f"**Horário:** {texto_horario}")
@@ -153,3 +156,4 @@ if not df.empty:
         st.warning("Nenhum relatório encontrado com os filtros atuais.")
 else:
     st.warning("Não foi possível carregar os dados. Verifique a URL da planilha e as permissões.")
+
