@@ -106,28 +106,21 @@ if not df.empty:
 
         # Caso de apenas um dia
         if data_min >= data_max:
-            # Caso só tenha 1 dia
-            unica_data = st.sidebar.date_input(
+            st.sidebar.date_input(
                 "Data dos Relatórios:",
                 value=data_min,
                 disabled=True
             )
-            data_inicio, data_fim = unica_data, unica_data
-            st.sidebar.write("📅 Selecionada:", unica_data.strftime("%d/%m/%Y"))
+            data_inicio, data_fim = data_min, data_max
         else:
-            # Caso tenha intervalo de datas
             data_selecionada = st.sidebar.date_input(
                 "Selecione o Período:", 
                 value=(data_min, data_max), 
                 min_value=data_min, 
                 max_value=data_max
             )
-
             if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
                 data_inicio, data_fim = data_selecionada
-                st.sidebar.write(
-                    f"📅 Período selecionado: {data_inicio.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')}"
-                )
 
     # --- FILTROS ---
     df_filtrado = df.copy()
