@@ -193,7 +193,7 @@ if not df.empty:
             st.write(
                 f"**Data:** {relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')} "
                 f"| **Preceptor(a):** {relatorio_completo['Nome do preceptor']} "
-                f"| **Orientadora de Serviço:** {texto_orientadora}"
+                f"| **Orientadora de Serviço:** {texto_orientadora} "
                 f"| **Tutoras presentes:** {texto_tutores}"
             )
             st.write(f"**Horário:** {texto_horario}")
