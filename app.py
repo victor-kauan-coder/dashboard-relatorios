@@ -205,8 +205,6 @@ if not df.empty:
                 st.write(relatorio_completo['OBJETIVO DA(S) ATIVIDADE(S)'])
             with st.expander("Relato com Fundamentação Teórica"):
                 st.write(relatorio_completo['RELATO FUNDAMENTADO'])
-            with st.expander("Referências"):
-                st.write(relatorio_completo['REFERÊNCIAS'])
             with st.expander("Reflexões Críticas"):
                 st.write(relatorio_completo['REFLEXÕES CRÍTICAS'])
     else:
