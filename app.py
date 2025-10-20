@@ -165,6 +165,7 @@ if not df.empty:
 
     # --- DETALHES ---
     st.header("Visualizar Relatório Detalhado")
+    df_filtrado = df_filtrado.sort_values(by='Data da atividade', ascending=False)
     if not df_filtrado.empty:
         opcoes_relatorios = [
             f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}"
