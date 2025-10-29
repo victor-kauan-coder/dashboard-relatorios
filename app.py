@@ -192,7 +192,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.cell(w_ent, 7, limpar_texto("Horário de Entrada"), border=1, align='C')
     pdf.cell(w_sai, 7, limpar_texto("Horário de Saída"), border=1, align='C')
     pdf.cell(w_ati, 7, limpar_texto("Atividades Desenvolvidas"), border=1, align='C')
-    pdf.cell(w_ass, 7, limpar_texto("Assinatura do Monitor"), border=1, align='C') #
+    # pdf.cell(w_ass, 7, limpar_texto("Assinatura do Monitor"), border=1, align='C') #
     pdf.ln()
 
     # Conteúdo da Tabela
@@ -257,6 +257,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.cell(0, 5, limpar_texto("Observações:"), ln=True) #
     pdf.cell(0, 5, "", border='B', ln=True) # Linha em branco para observações
     pdf.ln(15)
+    pdf.cell(0, 5, limpar_texto("ASSINATURA MONITOR: _________________________________________ "), align='L')
     pdf.cell(0, 5, limpar_texto("VISTO DO PRECEPTOR: _________________________________________ DATA: ____ / ____ / ______"), align='L') #
     
     # (MANTIDO) Retorna 'bytes' (sem o .encode('latin1') que causava erro)
