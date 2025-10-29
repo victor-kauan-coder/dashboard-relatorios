@@ -109,87 +109,158 @@ def carregar_dados():
 import unicodedata
 
 def limpar_texto(texto):
-    """Remove caracteres Unicode problemáticos e normaliza acentos."""
+    """Remove caracteres Unicode problemáticos para 'latin-1'."""
     if not isinstance(texto, str):
         texto = str(texto)
-    texto = texto.replace("—", "-").replace("-", "-").replace("•", "-")  # substitui traços e bullets
-    texto = unicodedata.normalize('NFKD', texto)
+    
+    # 1. Substituições manuais para caracteres comuns
+    texto = texto.replace('–', '-') # En dash
+    texto = texto.replace('—', '-') # Em dash
+    texto = texto.replace('“', '"') # Aspas curvas
+    texto = texto.replace('”', '"') # Aspas curvas
+    texto = texto.replace('‘', "'") # Apóstrofo curvo
+    texto = texto.replace('’', "'") # Apóstrofo curvo
+    texto = texto.replace('•', '-') # Bullet
+    
+    # 2. Normaliza (decompõe acentos) e re-codifica
+    # Isso tentará manter os acentos do 'latin-1' e descartará o resto
+    try:
+        # Tenta normalizar e codificar para latin-1, ignorando erros
+        texto = unicodedata.normalize('NFKD', texto).encode('latin-1', 'ignore').decode('latin-1')
+    except:
+        # Fallback para ASCII puro se latin-1 falhar (raro)
+        texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('ascii')
+        
     return texto
 
-def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
+
+# --- FUNÇÃO PDF (Folha de Frequência) ---
+def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
+    """
+    Cria um PDF de folha de frequência baseado no template .docx
+    usando os dados filtrados do DataFrame.
+    """
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Define a fonte. 'Arial' é mais seguro para servidores que 'Helvetica'
+    try:
+        pdf.set_font("Arial", 'B', 12)
+    except Exception:
+        pdf.set_font("Helvetica", 'B', 12)
 
-    # Adiciona uma fonte Unicode
-    pdf.set_font('Arial', '', 12)
 
-    # --- Cabeçalho ---
-    pdf.cell(0, 8, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C')
-    pdf.cell(0, 8, "PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL", ln=True, align='C')
-    pdf.ln(6)
-    pdf.cell(0, 8, "FOLHA DE FREQUÊNCIA - MONITORES", ln=True, align='C')
-    pdf.ln(8)
+    # --- CABEÇALHO (do docx) ---
+    # (MODIFICADO) Limpa o texto do cabeçalho
+    pdf.cell(0, 5, limpar_texto("UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI"), ln=True, align='C') 
+    pdf.cell(0, 5, limpar_texto("PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL"), ln=True, align='C') 
+    pdf.ln(5)
+    pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUÊNCIA - MONITORES"), ln=True, align='C') 
+    pdf.ln(5)
 
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 6, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano-1]}/{ano}", ln=True)
-    pdf.cell(0, 6, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True)
-    pdf.cell(0, 6, "Local de Atuação: CAPS AD - Teresina / PI", ln=True)
-    pdf.cell(0, 6, f"Preceptora: {preceptora}", ln=True)
-    pdf.cell(0, 6, f"Monitor(a): {nome_monitor}", ln=True)
-    pdf.ln(6)
+    # --- METADADOS (do docx) ---
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", size=10)
+    else:
+        pdf.set_font("Helvetica", size=10)
+        
+    # (MODIFICADO) Limpa o texto dos metadados
+    pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes-1].upper()} / {ano}"), ln=True) 
+    pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True) #
+    pdf.cell(0, 5, limpar_texto("Local de Atuação: CAPS AD - Teresina / PI"), ln=True) #
+    pdf.cell(0, 5, limpar_texto(f"Preceptora: {preceptora}"), ln=True) #
+    pdf.cell(0, 5, limpar_texto(f"Monitor: {nome_monitor}"), ln=True) # (Adicionado para clareza)
+    pdf.ln(5)
 
-    # --- Tabela ---
-    pdf.set_font('Arial', '', 9)
-    w_data, w_ent, w_sai, w_ati, w_ass = 25, 25, 25, 85, 30
-
-    # Cabeçalho
-    pdf.cell(w_data, 8, "Data", border=1, align='C')
-    pdf.cell(w_ent, 8, "Entrada", border=1, align='C')
-    pdf.cell(w_sai, 8, "Saída", border=1, align='C')
-    pdf.cell(w_ati, 8, "Atividades Desenvolvidas", border=1, align='C')
-    pdf.cell(w_ass, 8, "Assinatura", border=1, align='C')
+    # --- TABELA ---
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", 'B', 8) # (MANTIDO) Fonte tamanho 8
+    else:
+        pdf.set_font("Helvetica", 'B', 8) # (MANTIDO) Fonte tamanho 8
+    
+    # Larguras das colunas (total 190mm)
+    w_data = 25
+    w_ent = 25
+    w_sai = 25
+    w_ati = 85  # Coluna principal
+    w_ass = 30
+    
+    # Cabeçalho da Tabela
+    # (MODIFICADO) Limpa o texto do cabeçalho da tabela
+    pdf.cell(w_data, 7, limpar_texto("Data"), border=1, align='C')
+    pdf.cell(w_ent, 7, limpar_texto("Horário de Entrada"), border=1, align='C')
+    pdf.cell(w_sai, 7, limpar_texto("Horário de Saída"), border=1, align='C')
+    pdf.cell(w_ati, 7, limpar_texto("Atividades Desenvolvidas"), border=1, align='C')
+    pdf.cell(w_ass, 7, limpar_texto("Assinatura do Monitor"), border=1, align='C') #
     pdf.ln()
 
-    pdf.set_font('Arial', '', 9)
+    # Conteúdo da Tabela
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", size=8) # (MANTIDO) Fonte tamanho 8
+    else:
+        pdf.set_font("Helvetica", size=8) # (MANTIDO) Fonte tamanho 8
+        
+    # Garante que os dados estão em ordem de data
     df_monitor = df_monitor.sort_values(by='Data da atividade')
-
+    
+    # Define uma altura de linha base
+    altura_linha_base = 5 # (MANTIDO) Altura 5
+    
     for _, row in df_monitor.iterrows():
-        data = row['Data da atividade'].strftime('%d/%m/%Y')
-        entrada = str(row.get('Horário de Início', ''))
-        saida = "18:00"
-        atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', '') or '')
-
-        y_inicio = pdf.get_y()
-
-        pdf.cell(w_data, 6, data, border=1, align='C')
-        pdf.cell(w_ent, 6, entrada, border=1, align='C')
-        pdf.cell(w_sai, 6, saida, border=1, align='C')
+        # (MODIFICADO) Limpa os dados da tabela
+        data = limpar_texto(row['Data da atividade'].strftime('%d/%m/%Y'))
+        entrada = limpar_texto(str(row.get('Horário de Início', ''))) # Pega da planilha
+        saida = "18:00" # Fixo, baseado no template
+        
+        atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
+        if pd.isna(atividade_texto):
+            atividade_texto = ''
+        
+        # (REMOVIDO) A função limpar_texto() já faz isso
+        
+        # (MANTIDO) Lógica de formatação da tabela
+        
+        y_inicial = pdf.get_y()
+        
+        pdf.cell(w_data, altura_linha_base, data, border=0, align='C')
+        pdf.cell(w_ent, altura_linha_base, entrada, border=0, align='C')
+        pdf.cell(w_sai, altura_linha_base, saida, border=0, align='C')
 
         x_ati = pdf.get_x()
-        pdf.multi_cell(w_ati, 6, atividade_texto, border=1, align='L')
-        y_final = pdf.get_y()
+        
+        pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
 
-        h_total = y_final - y_inicio
+        y_final_ati = pdf.get_y()
+        
+        h_real = y_final_ati - y_inicial
+        
         x_ass = x_ati + w_ati
-        pdf.set_xy(x_ass, y_inicio)
-        pdf.cell(w_ass, h_total, "", border=1)
+        pdf.set_xy(x_ass, y_inicial)
+        pdf.cell(w_ass, h_real, "", border=1) 
+        
+        pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
+        pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
+        pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
 
-        pdf.rect(pdf.l_margin, y_inicio, w_data, h_total)
-        pdf.rect(pdf.l_margin + w_data, y_inicio, w_ent, h_total)
-        pdf.rect(pdf.l_margin + w_data + w_ent, y_inicio, w_sai, h_total)
+        pdf.set_y(y_final_ati)
 
-        pdf.set_y(y_final)
 
+    # --- RODAPÉ (do docx) ---
     pdf.ln(10)
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 6, "Observações:", ln=True)
-    pdf.cell(0, 10, "", border='B', ln=True)
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", size=10)
+    else:
+        pdf.set_font("Helvetica", size=10)
+        
+    # (MODIFICADO) Limpa o texto do rodapé
+    pdf.cell(0, 5, limpar_texto("Observações:"), ln=True) #
+    pdf.cell(0, 5, "", border='B', ln=True) # Linha em branco para observações
     pdf.ln(15)
-    pdf.cell(0, 6, "VISTO DO PRECEPTOR: _________________________________________  DATA: ____ / ____ / ______", ln=True)
-
-    # Retorna bytes diretamente
-    return pdf.output(dest='S').encode('latin1')
+    pdf.cell(0, 5, limpar_texto("VISTO DO PRECEPTOR: _________________________________________ DATA: ____ / ____ / ______"), align='L') #
+    
+    # (MANTIDO) Retorna 'bytes' (sem o .encode('latin1') que causava erro)
+    return pdf.output()
 
 
 
