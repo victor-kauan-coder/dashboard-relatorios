@@ -109,7 +109,7 @@ def carregar_dados():
 
 # --- (NOVA FUNÇÃO) ---
 # --- FUNÇÃO PDF (Folha de Frequência) ---
-def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, preceptora):
+def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano,ano, preceptora):
     """
     Cria um PDF de folha de frequência baseado no template .docx
     usando os dados filtrados do DataFrame.
@@ -141,7 +141,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, preceptora):
     else:
         pdf.set_font("Helvetica", size=10)
         
-    pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano]}", ln=True) #
+    pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano-1]}/{ano}", ln=True) #
     pdf.cell(0, 5, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True) #
     pdf.cell(0, 5, "Local de Atuação: CAPS AD - Teresina / PI", ln=True) #
     pdf.cell(0, 5, f"Preceptora: {preceptora}", ln=True) #
@@ -311,7 +311,8 @@ if not df.empty:
             preceptora = df_filtrado['Nome do preceptor'].iloc[0] #
             
             # Pega o Mês/Ano da primeira entrada para o título
-            mes_ano = df_filtrado['Data da atividade'].iloc[0].month
+            mes = df_filtrado['Data da atividade'].iloc[0].month
+            ano = df_filtrado['Data da atividade'].iloc[0].year
             data_pdf_inicio = df_filtrado['Data da atividade'].min().strftime('%d-%m')
             data_pdf_fim = df_filtrado['Data da atividade'].max().strftime('%d-%m')
 
@@ -320,7 +321,8 @@ if not df.empty:
                 pdf_data_freq = criar_pdf_frequencia(
                     df_filtrado, 
                     nome_monitor, 
-                    mes_ano, 
+                    mes, 
+                    ano,
                     preceptora
                 )
                 
