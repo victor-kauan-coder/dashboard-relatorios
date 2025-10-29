@@ -155,7 +155,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano,ano, preceptora):
         pdf.set_font("Helvetica", 'B', 9)
     
     # Larguras das colunas (total 190mm)
-    w_data = 25
+    w_data = 18
     w_ent = 25
     w_sai = 25
     w_ati = 85  # Coluna principal
