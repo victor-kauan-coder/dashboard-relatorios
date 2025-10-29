@@ -8,7 +8,7 @@ import locale
 from streamlit.errors import StreamlitSecretNotFoundError
 from fpdf import FPDF  
 
-# (MODIFICADO) Lista de meses em PT-BR (sua sugestão)
+
 meses_ptbr = ["Janeiro", "Fevereiro", "Março", "Abril","Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
 # --- CONFIGURA LOCALE PARA PORTUGUÊS BRASIL ---
@@ -50,8 +50,8 @@ URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE
 def carregar_dados():
     try:
         scopes = [
-            "https.www.googleapis.com/auth/spreadsheets",
-            "https.www.googleapis.com/auth/drive.file"
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive.file"
         ]
 
         # --- CREDENCIAIS ---
@@ -109,8 +109,7 @@ def carregar_dados():
 
 # --- (NOVA FUNÇÃO) ---
 # --- FUNÇÃO PDF (Folha de Frequência) ---
-# (MODIFICADO) Assinatura da função (baseado na sua)
-def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
+def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano,ano, preceptora):
     """
     Cria um PDF de folha de frequência baseado no template .docx
     usando os dados filtrados do DataFrame.
@@ -119,12 +118,15 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Define a fonte. 'Arial' é mais seguro para servidores que 'Helvetica'
+    # Adiciona uma fonte que suporte UTF-8 (como a DejaVu)
+    # Baixe a fonte DejaVuSans.ttf e coloque no mesmo diretório
+    # Se der erro de fonte, troque 'Helvetica' por 'Arial'
     try:
-        pdf.set_font("Arial", 'B', 12)
-    except Exception:
+        # Tenta usar Helvetica (padrão)
         pdf.set_font("Helvetica", 'B', 12)
-
+    except Exception:
+        # Se falhar (raro), usa Arial
+        pdf.set_font("Arial", 'B', 12)
 
     # --- CABEÇALHO (do docx) ---
     pdf.cell(0, 5, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C') 
@@ -139,8 +141,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     else:
         pdf.set_font("Helvetica", size=10)
         
-    # (MODIFICADO) Usa a lista meses_ptbr (baseado na sua)
-    pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes-1].upper()} / {ano}", ln=True) 
+    pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano-1]}/{ano}", ln=True) #
     pdf.cell(0, 5, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True) #
     pdf.cell(0, 5, "Local de Atuação: CAPS AD - Teresina / PI", ln=True) #
     pdf.cell(0, 5, f"Preceptora: {preceptora}", ln=True) #
@@ -149,9 +150,9 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
 
     # --- TABELA ---
     if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", 'B', 8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Arial", 'B', 9)
     else:
-        pdf.set_font("Helvetica", 'B', 8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Helvetica", 'B', 9)
     
     # Larguras das colunas (total 190mm)
     w_data = 25
@@ -170,15 +171,15 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
 
     # Conteúdo da Tabela
     if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Arial", size=9)
     else:
-        pdf.set_font("Helvetica", size=8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Helvetica", size=9)
         
     # Garante que os dados estão em ordem de data
     df_monitor = df_monitor.sort_values(by='Data da atividade')
     
     # Define uma altura de linha base
-    altura_linha_base = 5 # (MANTIDO) Altura 5
+    altura_linha_base = 6
     
     for _, row in df_monitor.iterrows():
         data = row['Data da atividade'].strftime('%d/%m/%Y')
@@ -189,38 +190,43 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
         if pd.isna(atividade_texto):
             atividade_texto = ''
         
-        # (MANTIDO) Correção de caracteres especiais
-        atividade_texto = atividade_texto.replace('–', '-') # En dash
-        atividade_texto = atividade_texto.replace('—', '-') # Em dash
-        atividade_texto = atividade_texto.replace('“', '"') # Aspas curvas
-        atividade_texto = atividade_texto.replace('”', '"') # Aspas curvas
-        atividade_texto = atividade_texto.replace('‘', "'") # Apóstrofo curvo
-        atividade_texto = atividade_texto.replace('’', "'") # Apóstrofo curvo
+        # --- Lógica para desenhar células com alturas variáveis ---
         
-        # (MANTIDO) Lógica de formatação da tabela
-        
+        # Pega a posição Y atual antes de desenhar a linha
         y_inicial = pdf.get_y()
         
-        pdf.cell(w_data, altura_linha_base, data, border=0, align='C')
-        pdf.cell(w_ent, altura_linha_base, entrada, border=0, align='C')
-        pdf.cell(w_sai, altura_linha_base, saida, border=0, align='C')
+        # Desenha as 3 primeiras células (altura será corrigida depois)
+        pdf.cell(w_data, altura_linha_base, data, border=1, align='C')
+        pdf.cell(w_ent, altura_linha_base, entrada, border=1, align='C')
+        pdf.cell(w_sai, altura_linha_base, saida, border=1, align='C')
 
+        # Guarda a posição X para a célula de atividade
         x_ati = pdf.get_x()
         
+        # Desenha a célula de atividade (multi_cell)
         pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
 
+        # Pega o Y depois da multi_cell (que pode ter várias linhas)
         y_final_ati = pdf.get_y()
         
+        # Guarda a posição X para a célula de assinatura
+        x_ass = x_ati + w_ati
+        
+        # Reposiciona para desenhar a última célula (Assinatura)
+        pdf.set_xy(x_ass, y_inicial)
+        
+        # Calcula a altura real que a multi_cell usou
         h_real = y_final_ati - y_inicial
         
-        x_ass = x_ati + w_ati
-        pdf.set_xy(x_ass, y_inicial)
-        pdf.cell(w_ass, h_real, "", border=1) 
+        pdf.cell(w_ass, h_real, "", border=1) # Célula de assinatura em branco
         
+        # Agora, precisamos "corrigir" a altura das 3 primeiras células
+        # Voltando e desenhando retângulos por cima das bordas direitas
         pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
         pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
         pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
 
+        # Move o cursor para baixo da linha mais alta
         pdf.set_y(y_final_ati)
 
 
@@ -258,8 +264,6 @@ if not df.empty:
         "Selecione o(a) Preceptor(a):", options=preceptores, default=[])
 
     data_inicio, data_fim = None, None
-    # --- (CORRIGIDO) ---
-    # Troca 'dados.columns' por 'df.columns' para corrigir o NameError
     if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
         data_min = df['Data da atividade'].min().date()
         data_max = df['Data da atividade'].max().date()
@@ -297,7 +301,7 @@ if not df.empty:
             (df_filtrado['Data da atividade'].dt.date <= data_fim)
         ]
         
-    # --- (NOVO) BOTÃO DE DOWNLOAD DA FREQUÊCIA ---
+    # --- (NOVO) BOTÃO DE DOWNLOAD DA FREQUÊNCIA ---
     # Só mostra se UM monitor estiver selecionado
     if len(monitor_selecionado) == 1:
         # Usa o df_filtrado, que já contém os dados corretos
@@ -306,17 +310,14 @@ if not df.empty:
             # Pega a preceptora do primeiro registro (já que está filtrado)
             preceptora = df_filtrado['Nome do preceptor'].iloc[0] #
             
-            # (MODIFICADO) Pega o Mês/Ano (baseado na sua lógica)
-            data_referencia = df_filtrado['Data da atividade'].iloc[0]
-            mes = data_referencia.month # Pega o número do mês (ex: 10)
-            ano = data_referencia.year  # Pega o ano (ex: 2025)
-            
+            # Pega o Mês/Ano da primeira entrada para o título
+            mes = df_filtrado['Data da atividade'].iloc[0].month
+            ano = df_filtrado['Data da atividade'].iloc[0].year
             data_pdf_inicio = df_filtrado['Data da atividade'].min().strftime('%d-%m')
             data_pdf_fim = df_filtrado['Data da atividade'].max().strftime('%d-%m')
 
             try:
                 # 1. Gera os dados do PDF
-                # (MODIFICADO) Passa 'mes' e 'ano' (baseado na sua lógica)
                 pdf_data_freq = criar_pdf_frequencia(
                     df_filtrado, 
                     nome_monitor, 
@@ -325,6 +326,7 @@ if not df.empty:
                     preceptora
                 )
                 
+                # --- (ESTA É A CORREÇÃO) ---
                 # 2. Garante que os dados estão no formato 'bytes'
                 pdf_bytes_freq = bytes(pdf_data_freq)
                 
@@ -408,4 +410,3 @@ if not df.empty:
 else:
     st.warning(
         "Não foi possível carregar os dados. Verifique a URL da planilha e as permissões.")
-
