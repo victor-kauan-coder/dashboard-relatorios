@@ -1,4 +1,4 @@
-# app.py (Versão final com pt-BR e download PDF)
+# app.py (Versão final com PDF de Frequência Mensal)
 import streamlit as st
 import pandas as pd
 import gspread
@@ -105,79 +105,142 @@ def carregar_dados():
 
 
 # --- (NOVA FUNÇÃO) ---
-# --- FUNÇÃO PARA CRIAR O PDF ---
-def criar_pdf_do_relatorio(relatorio_completo):
+# --- FUNÇÃO PDF (Folha de Frequência) ---
+def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, preceptora):
     """
-    Cria um PDF formatado a partir de uma série (linha) de dados do relatório.
+    Cria um PDF de folha de frequência baseado no template .docx
+    usando os dados filtrados do DataFrame.
     """
-    
-    # --- Preparar os dados (lógica similar à da interface) ---
-    tutores = relatorio_completo.get('tutores presentes')
-    orientadora = relatorio_completo.get('Orientadora de serviço')
-    texto_tutores = 'Nenhuma' if pd.isna(tutores) or tutores == '' else str(tutores)
-    texto_orientadora = 'Ausente' if pd.isna(orientadora) or orientadora == '' else str(orientadora)
-    horario = relatorio_completo.get('Horário de Início')
-    texto_horario = 'Não informado' if pd.isna(horario) or horario == '' else str(horario)
-    data_str = relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')
-    
-    # --- Iniciar PDF ---
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # A biblioteca fpdf2 usa UTF-8 por padrão, então 'Helvetica' deve funcionar
-    # para a maioria dos caracteres em português.
-    
-    # --- TÍTULO ---
-    pdf.set_font("Helvetica", 'B', 16)
-    # Garante que o nome não quebre e seja tratado como UTF-8
-    nome_monitor = relatorio_completo['Nome do monitor']
-    pdf.cell(0, 10, f"Relatório de: {nome_monitor}", ln=True, border=0, align='C')
+    # Adiciona uma fonte que suporte UTF-8 (como a DejaVu)
+    # Baixe a fonte DejaVuSans.ttf e coloque no mesmo diretório
+    # Se der erro de fonte, troque 'Helvetica' por 'Arial'
+    try:
+        # Tenta usar Helvetica (padrão)
+        pdf.set_font("Helvetica", 'B', 12)
+    except Exception:
+        # Se falhar (raro), usa Arial
+        pdf.set_font("Arial", 'B', 12)
+
+    # --- CABEÇALHO (do docx) ---
+    pdf.cell(0, 5, "UNIVERSIDADE FEDERAL DO PIAUÍ – UFPI", ln=True, align='C') #
+    pdf.cell(0, 5, "PROJETO PET SAÚDE/I&SD – INFORMAÇÃO E SAÚDE DIGITAL", ln=True, align='C') #
+    pdf.ln(5)
+    pdf.cell(0, 7, "FOLHA DE FREQUÊNCIA – MONITORES", ln=True, align='C') #
     pdf.ln(5)
 
-    # --- METADADOS (como na imagem) ---
-    pdf.set_font("Helvetica", size=10)
-    
-    # Linha 1: Data | Preceptor | Orientadora | Tutoras
-    linha_meta1 = (
-        f"Data: {data_str} | "
-        f"Preceptor(a): {relatorio_completo['Nome do preceptor']} | "
-        f"Orientadora de Serviço: {texto_orientadora} | "
-        f"Tutoras presentes: {texto_tutores}"
-    )
-    pdf.multi_cell(0, 5, linha_meta1, border=0, align='L')
-    
-    # Linha 2: Horário
-    pdf.cell(0, 5, f"Horário: {texto_horario}", ln=True, border=0, align='L')
-    
-    # Linha 3: Local
-    pdf.cell(0, 5, f"Local: {relatorio_completo['Local Específico:']}", ln=True, border=0, align='L')
-    
-    pdf.ln(5) # Pular linha
-
-    # --- Função auxiliar para criar as seções ---
-    def adicionar_secao(titulo, conteudo):
-        pdf.set_font("Helvetica", 'B', 12)
-        pdf.set_fill_color(240, 240, 240) # Cor cinza claro (como no expander)
-        pdf.cell(0, 8, f" {titulo}", ln=True, border=1, align='L', fill=True)
+    # --- METADADOS (do docx) ---
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", size=10)
+    else:
+        pdf.set_font("Helvetica", size=10)
         
-        pdf.set_font("Helvetica", size=11)
-        # Tratar conteúdo ausente (NaN) e garantir que é string
-        conteudo_texto = "Não informado" if pd.isna(conteudo) else str(conteudo)
-            
-        # Adicionar borda ao redor do texto
-        pdf.multi_cell(0, 6, conteudo_texto, border=1, align='L')
-        pdf.ln(5) # Espaçamento entre seções
+    pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {mes_ano.upper()}", ln=True) #
+    pdf.cell(0, 5, "Grupo Tutorial: Grupo 1 – Letramento para Usuários dos Serviços Digitais do SUS", ln=True) #
+    pdf.cell(0, 5, "Local de Atuação: CAPS AD – Teresina / PI", ln=True) #
+    pdf.cell(0, 5, f"Preceptora: {preceptora}", ln=True) #
+    pdf.cell(0, 5, f"Monitor: {nome_monitor}", ln=True) # (Adicionado para clareza)
+    pdf.ln(5)
 
-    # --- Adicionar Seções ---
-    adicionar_secao("Atividade(s) Realizada(s)", relatorio_completo.get('ATIVIDADE(S) REALIZADA(S)'))
-    adicionar_secao("Objetivo Da(s) Atividade(s)", relatorio_completo.get('OBJETIVO DA(S) ATIVIDADE(S)'))
-    adicionar_secao("Relato Fundamentado", relatorio_completo.get('RELATO FUNDAMENTADO'))
-    adicionar_secao("Reflexões Críticas", relatorio_completo.get('REFLEXÕES CRÍTICAS'))
+    # --- TABELA ---
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", 'B', 9)
+    else:
+        pdf.set_font("Helvetica", 'B', 9)
+    
+    # Larguras das colunas (total 190mm)
+    w_data = 25
+    w_ent = 25
+    w_sai = 25
+    w_ati = 85  # Coluna principal
+    w_ass = 30
+    
+    # Cabeçalho da Tabela
+    pdf.cell(w_data, 7, "Data", border=1, align='C')
+    pdf.cell(w_ent, 7, "Horário de Entrada", border=1, align='C')
+    pdf.cell(w_sai, 7, "Horário de Saída", border=1, align='C')
+    pdf.cell(w_ati, 7, "Atividades Desenvolvidas", border=1, align='C')
+    pdf.cell(w_ass, 7, "Assinatura do Monitor", border=1, align='C') #
+    pdf.ln()
 
-    # --- Retornar como bytes ---
+    # Conteúdo da Tabela
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", size=9)
+    else:
+        pdf.set_font("Helvetica", size=9)
+        
+    # Garante que os dados estão em ordem de data
+    df_monitor = df_monitor.sort_values(by='Data da atividade')
+    
+    # Define uma altura de linha base
+    altura_linha_base = 6
+    
+    for _, row in df_monitor.iterrows():
+        data = row['Data da atividade'].strftime('%d/%m/%Y')
+        entrada = str(row.get('Horário de Início', '')) # Pega da planilha
+        saida = "18:00" # Fixo, baseado no template
+        
+        atividade_texto = str(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
+        if pd.isna(atividade_texto):
+            atividade_texto = ''
+        
+        # --- Lógica para desenhar células com alturas variáveis ---
+        
+        # Pega a posição Y atual antes de desenhar a linha
+        y_inicial = pdf.get_y()
+        
+        # Desenha as 3 primeiras células (altura será corrigida depois)
+        pdf.cell(w_data, altura_linha_base, data, border=1, align='C')
+        pdf.cell(w_ent, altura_linha_base, entrada, border=1, align='C')
+        pdf.cell(w_sai, altura_linha_base, saida, border=1, align='C')
+
+        # Guarda a posição X para a célula de atividade
+        x_ati = pdf.get_x()
+        
+        # Desenha a célula de atividade (multi_cell)
+        pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
+
+        # Pega o Y depois da multi_cell (que pode ter várias linhas)
+        y_final_ati = pdf.get_y()
+        
+        # Guarda a posição X para a célula de assinatura
+        x_ass = x_ati + w_ati
+        
+        # Reposiciona para desenhar a última célula (Assinatura)
+        pdf.set_xy(x_ass, y_inicial)
+        
+        # Calcula a altura real que a multi_cell usou
+        h_real = y_final_ati - y_inicial
+        
+        pdf.cell(w_ass, h_real, "", border=1) # Célula de assinatura em branco
+        
+        # Agora, precisamos "corrigir" a altura das 3 primeiras células
+        # Voltando e desenhando retângulos por cima das bordas direitas
+        pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
+        pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
+        pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
+
+        # Move o cursor para baixo da linha mais alta
+        pdf.set_y(y_final_ati)
+
+
+    # --- RODAPÉ (do docx) ---
+    pdf.ln(10)
+    if 'Arial' in pdf.font_family:
+        pdf.set_font("Arial", size=10)
+    else:
+        pdf.set_font("Helvetica", size=10)
+        
+    pdf.cell(0, 5, "Observações:", ln=True) #
+    pdf.cell(0, 5, "", border='B', ln=True) # Linha em branco para observações
+    pdf.ln(15)
+    pdf.cell(0, 5, "VISTO DO PRECEPTOR: _________________________________________ DATA: ____ / ____ / ______", align='L') #
+    
+    # Retorna o PDF (o output padrão já é 'bytes' no fpdf2)
     return pdf.output()
-
 # --- FIM DA NOVA FUNÇÃO ---
 
 
@@ -202,7 +265,6 @@ if not df.empty:
         data_min = df['Data da atividade'].min().date()
         data_max = df['Data da atividade'].max().date()
 
-        # Caso de apenas um dia
         if data_min >= data_max:
             unica_data = st.sidebar.date_input(
                 "Data dos Relatórios:",
@@ -222,7 +284,7 @@ if not df.empty:
             if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
                 data_inicio, data_fim = data_selecionada
 
-    # --- FILTROS ---
+    # --- FILTROS (CÁLCULO) ---
     df_filtrado = df.copy()
     if monitor_selecionado:
         df_filtrado = df_filtrado[df_filtrado['Nome do monitor'].isin(
@@ -235,6 +297,53 @@ if not df.empty:
             (df_filtrado['Data da atividade'].dt.date >= data_inicio) &
             (df_filtrado['Data da atividade'].dt.date <= data_fim)
         ]
+        
+    # --- (NOVO) BOTÃO DE DOWNLOAD DA FREQUÊNCIA ---
+    # Só mostra se UM monitor estiver selecionado
+    if len(monitor_selecionado) == 1:
+        # Usa o df_filtrado, que já contém os dados corretos
+        if not df_filtrado.empty:
+            nome_monitor = monitor_selecionado[0]
+            # Pega a preceptora do primeiro registro (já que está filtrado)
+            preceptora = df_filtrado['Nome do preceptor'].iloc[0] #
+            
+            # Pega o Mês/Ano da primeira entrada para o título
+            mes_ano = df_filtrado['Data da atividade'].iloc[0].strftime('%B / %Y').capitalize() #
+            data_pdf_inicio = df_filtrado['Data da atividade'].min().strftime('%d-%m')
+            data_pdf_fim = df_filtrado['Data da atividade'].max().strftime('%d-%m')
+
+            try:
+                # 1. Gera os dados do PDF
+                pdf_data_freq = criar_pdf_frequencia(
+                    df_filtrado, 
+                    nome_monitor, 
+                    mes_ano, 
+                    preceptora
+                )
+                
+                # --- (ESTA É A CORREÇÃO) ---
+                # 2. Garante que os dados estão no formato 'bytes'
+                pdf_bytes_freq = bytes(pdf_data_freq)
+                
+                # 3. Define o nome do arquivo
+                nome_arquivo_freq = f"Frequencia_{nome_monitor.replace(' ', '_')}_{data_pdf_inicio}_a_{data_pdf_fim}.pdf"
+                
+                # 4. Cria o botão de download
+                st.sidebar.download_button(
+                    label="📥 Baixar Folha de Frequência (PDF)",
+                    data=pdf_bytes_freq, # Usa os dados em 'bytes'
+                    file_name=nome_arquivo_freq,
+                    mime="application/pdf",
+                    key="btn_freq_pdf"
+                )
+            except Exception as e:
+                st.sidebar.error(f"Erro ao gerar PDF de frequência: {e}")
+                st.sidebar.code(traceback.format_exc()) # Adicionado para debug
+        else:
+            # Mostra info se o filtro não retornou nada
+            st.sidebar.info("Nenhum registro no período para gerar a frequência.")
+    # --- FIM DO NOVO BLOCO ---
+
 
     # --- TABELA ---
     st.header(f"Relatórios Encontrados: {len(df_filtrado)}")
@@ -243,22 +352,20 @@ if not df.empty:
 
     # --- DETALHES ---
     st.header("Visualizar Relatório Detalhado")
-    df_filtrado = df_filtrado.sort_values(by='Data da atividade', ascending=False)
-    if not df_filtrado.empty:
+    df_filtrado_detalhes = df_filtrado.sort_values(by='Data da atividade', ascending=False)
+    if not df_filtrado_detalhes.empty:
         opcoes_relatorios = [
             f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}"
-            for _, row in df_filtrado.iterrows()
+            for _, row in df_filtrado_detalhes.iterrows()
         ]
         relatorio_escolhido = st.selectbox(
             "Selecione um relatório:", options=opcoes_relatorios)
 
         if relatorio_escolhido:
             indice_selecionado = opcoes_relatorios.index(relatorio_escolhido)
-            id_real = df_filtrado.index[indice_selecionado]
+            id_real = df_filtrado_detalhes.index[indice_selecionado]
             relatorio_completo = df.loc[id_real]
 
-            # --- (MODIFICADO) ---
-            # Movido para cima e garantido que data_str exista
             tutores = relatorio_completo.get('tutores presentes')
             orientadora = relatorio_completo.get('Orientadora de serviço')
             texto_tutores = 'Nenhuma' if pd.isna(
@@ -291,27 +398,7 @@ if not df.empty:
             with st.expander("Reflexões Críticas"):
                 st.write(relatorio_completo['REFLEXÕES CRÍTICAS'])
             
-            # --- (NOVO) ---
-            # --- BOTÃO DE DOWNLOAD PDF ---
-            st.markdown("---")
-            try:
-                # 1. Gera o PDF em memória
-                pdf_bytes = criar_pdf_do_relatorio(relatorio_completo)
-                
-                # 2. Cria o nome do arquivo
-                nome_arquivo = f"Relatorio_{nome_monitor_str}_{data_str}.pdf"
-                
-                # 3. Cria o botão de download
-                st.download_button(
-                    label="📥 Baixar Relatório em PDF",
-                    data=pdf_bytes,
-                    file_name=nome_arquivo,
-                    mime="application/pdf"
-                )
-            except Exception as e:
-                st.error(f"Ocorreu um erro ao gerar o PDF: {e}")
-                st.code(traceback.format_exc())
-            # --- FIM DO NOVO BLOCO ---
+            # --- O BLOCO DE DOWNLOAD INDIVIDUAL FOI REMOVIDO DAQUI ---
             
     else:
         st.warning("Nenhum relatório encontrado com os filtros atuais.")
