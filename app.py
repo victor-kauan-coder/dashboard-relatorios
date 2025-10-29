@@ -112,7 +112,7 @@ def limpar_texto(texto):
     """Remove caracteres Unicode problemáticos e normaliza acentos."""
     if not isinstance(texto, str):
         texto = str(texto)
-    texto = texto.replace("—", "-").replace("–", "-").replace("•", "-")  # substitui traços e bullets
+    texto = texto.replace("—", "-").replace("-", "-").replace("•", "-")  # substitui traços e bullets
     texto = unicodedata.normalize('NFKD', texto)
     return texto
 
@@ -122,8 +122,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
     pdf.set_auto_page_break(auto=True, margin=15)
 
     # Adiciona uma fonte Unicode
-    pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
-    pdf.set_font('DejaVu', 'B', 13)
+    pdf.set_font('Arial', '', 10)
 
     # --- Cabeçalho ---
     pdf.cell(0, 8, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C')
