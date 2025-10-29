@@ -126,10 +126,10 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, preceptora):
         pdf.set_font("Arial", 'B', 12)
 
     # --- CABEÇALHO (do docx) ---
-    pdf.cell(0, 5, "UNIVERSIDADE FEDERAL DO PIAUÍ – UFPI", ln=True, align='C') #
-    pdf.cell(0, 5, "PROJETO PET SAÚDE/I&SD – INFORMAÇÃO E SAÚDE DIGITAL", ln=True, align='C') #
+    pdf.cell(0, 5, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C') 
+    pdf.cell(0, 5, "PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL", ln=True, align='C') 
     pdf.ln(5)
-    pdf.cell(0, 7, "FOLHA DE FREQUÊNCIA – MONITORES", ln=True, align='C') #
+    pdf.cell(0, 7, "FOLHA DE FREQUÊNCIA - MONITORES", ln=True, align='C') 
     pdf.ln(5)
 
     # --- METADADOS (do docx) ---
@@ -139,8 +139,8 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, preceptora):
         pdf.set_font("Helvetica", size=10)
         
     pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {mes_ano.upper()}", ln=True) #
-    pdf.cell(0, 5, "Grupo Tutorial: Grupo 1 – Letramento para Usuários dos Serviços Digitais do SUS", ln=True) #
-    pdf.cell(0, 5, "Local de Atuação: CAPS AD – Teresina / PI", ln=True) #
+    pdf.cell(0, 5, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True) #
+    pdf.cell(0, 5, "Local de Atuação: CAPS AD - Teresina / PI", ln=True) #
     pdf.cell(0, 5, f"Preceptora: {preceptora}", ln=True) #
     pdf.cell(0, 5, f"Monitor: {nome_monitor}", ln=True) # (Adicionado para clareza)
     pdf.ln(5)
