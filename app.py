@@ -122,7 +122,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
     pdf.set_auto_page_break(auto=True, margin=15)
 
     # Adiciona uma fonte Unicode
-    pdf.set_font('Arial', '', 10)
+    pdf.set_font('Arial', '', 12)
 
     # --- Cabeçalho ---
     pdf.cell(0, 8, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C')
@@ -131,7 +131,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
     pdf.cell(0, 8, "FOLHA DE FREQUÊNCIA - MONITORES", ln=True, align='C')
     pdf.ln(8)
 
-    pdf.set_font('DejaVu', '', 10)
+    pdf.set_font('Arial', '', 10)
     pdf.cell(0, 6, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano-1]}/{ano}", ln=True)
     pdf.cell(0, 6, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True)
     pdf.cell(0, 6, "Local de Atuação: CAPS AD - Teresina / PI", ln=True)
@@ -140,7 +140,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
     pdf.ln(6)
 
     # --- Tabela ---
-    pdf.set_font('DejaVu', 'B', 9)
+    pdf.set_font('Arial', '', 9)
     w_data, w_ent, w_sai, w_ati, w_ass = 25, 25, 25, 85, 30
 
     # Cabeçalho
@@ -151,7 +151,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
     pdf.cell(w_ass, 8, "Assinatura", border=1, align='C')
     pdf.ln()
 
-    pdf.set_font('DejaVu', '', 9)
+    pdf.set_font('Arial', '', 9)
     df_monitor = df_monitor.sort_values(by='Data da atividade')
 
     for _, row in df_monitor.iterrows():
@@ -182,7 +182,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
         pdf.set_y(y_final)
 
     pdf.ln(10)
-    pdf.set_font('DejaVu', '', 10)
+    pdf.set_font('Arial', '', 10)
     pdf.cell(0, 6, "Observações:", ln=True)
     pdf.cell(0, 10, "", border='B', ln=True)
     pdf.ln(15)
