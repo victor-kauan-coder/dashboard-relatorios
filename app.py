@@ -106,145 +106,92 @@ def carregar_dados():
         st.code(traceback.format_exc())
         return pd.DataFrame()
 
+import unicodedata
 
-# --- (NOVA FUNÇÃO) ---
-# --- FUNÇÃO PDF (Folha de Frequência) ---
-def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano,ano, preceptora):
-    """
-    Cria um PDF de folha de frequência baseado no template .docx
-    usando os dados filtrados do DataFrame.
-    """
+def limpar_texto(texto):
+    """Remove caracteres Unicode problemáticos e normaliza acentos."""
+    if not isinstance(texto, str):
+        texto = str(texto)
+    texto = texto.replace("—", "-").replace("–", "-").replace("•", "-")  # substitui traços e bullets
+    texto = unicodedata.normalize('NFKD', texto)
+    return texto
+
+def criar_pdf_frequencia(df_monitor, nome_monitor, mes_ano, ano, preceptora):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Adiciona uma fonte que suporte UTF-8 (como a DejaVu)
-    # Baixe a fonte DejaVuSans.ttf e coloque no mesmo diretório
-    # Se der erro de fonte, troque 'Helvetica' por 'Arial'
-    try:
-        # Tenta usar Helvetica (padrão)
-        pdf.set_font("Helvetica", 'B', 12)
-    except Exception:
-        # Se falhar (raro), usa Arial
-        pdf.set_font("Arial", 'B', 12)
 
-    # --- CABEÇALHO (do docx) ---
-    pdf.cell(0, 5, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C') 
-    pdf.cell(0, 5, "PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL", ln=True, align='C') 
-    pdf.ln(5)
-    pdf.cell(0, 7, "FOLHA DE FREQUÊNCIA - MONITORES", ln=True, align='C') 
-    pdf.ln(5)
+    # Adiciona uma fonte Unicode
+    pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+    pdf.set_font('DejaVu', 'B', 13)
 
-    # --- METADADOS (do docx) ---
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=10)
-    else:
-        pdf.set_font("Helvetica", size=10)
-        
-    pdf.cell(0, 5, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano-1]}/{ano}", ln=True) #
-    pdf.cell(0, 5, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True) #
-    pdf.cell(0, 5, "Local de Atuação: CAPS AD - Teresina / PI", ln=True) #
-    pdf.cell(0, 5, f"Preceptora: {preceptora}", ln=True) #
-    pdf.cell(0, 5, f"Monitor: {nome_monitor}", ln=True) # (Adicionado para clareza)
-    pdf.ln(5)
+    # --- Cabeçalho ---
+    pdf.cell(0, 8, "UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI", ln=True, align='C')
+    pdf.cell(0, 8, "PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL", ln=True, align='C')
+    pdf.ln(6)
+    pdf.cell(0, 8, "FOLHA DE FREQUÊNCIA - MONITORES", ln=True, align='C')
+    pdf.ln(8)
 
-    # --- TABELA ---
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", 'B', 9)
-    else:
-        pdf.set_font("Helvetica", 'B', 9)
-    
-    # Larguras das colunas (total 190mm)
-    w_data = 25
-    w_ent = 25
-    w_sai = 25
-    w_ati = 85  # Coluna principal
-    w_ass = 30
-    
-    # Cabeçalho da Tabela
-    pdf.cell(w_data, 7, "Data", border=1, align='C')
-    pdf.cell(w_ent, 7, "Horário de Entrada", border=1, align='C')
-    pdf.cell(w_sai, 7, "Horário de Saída", border=1, align='C')
-    pdf.cell(w_ati, 7, "Atividades Desenvolvidas", border=1, align='C')
-    pdf.cell(w_ass, 7, "Assinatura do Monitor", border=1, align='C') #
+    pdf.set_font('DejaVu', '', 10)
+    pdf.cell(0, 6, f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_ano-1]}/{ano}", ln=True)
+    pdf.cell(0, 6, "Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS", ln=True)
+    pdf.cell(0, 6, "Local de Atuação: CAPS AD - Teresina / PI", ln=True)
+    pdf.cell(0, 6, f"Preceptora: {preceptora}", ln=True)
+    pdf.cell(0, 6, f"Monitor(a): {nome_monitor}", ln=True)
+    pdf.ln(6)
+
+    # --- Tabela ---
+    pdf.set_font('DejaVu', 'B', 9)
+    w_data, w_ent, w_sai, w_ati, w_ass = 25, 25, 25, 85, 30
+
+    # Cabeçalho
+    pdf.cell(w_data, 8, "Data", border=1, align='C')
+    pdf.cell(w_ent, 8, "Entrada", border=1, align='C')
+    pdf.cell(w_sai, 8, "Saída", border=1, align='C')
+    pdf.cell(w_ati, 8, "Atividades Desenvolvidas", border=1, align='C')
+    pdf.cell(w_ass, 8, "Assinatura", border=1, align='C')
     pdf.ln()
 
-    # Conteúdo da Tabela
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=9)
-    else:
-        pdf.set_font("Helvetica", size=9)
-        
-    # Garante que os dados estão em ordem de data
+    pdf.set_font('DejaVu', '', 9)
     df_monitor = df_monitor.sort_values(by='Data da atividade')
-    
-    # Define uma altura de linha base
-    altura_linha_base = 6
-    
+
     for _, row in df_monitor.iterrows():
         data = row['Data da atividade'].strftime('%d/%m/%Y')
-        entrada = str(row.get('Horário de Início', '')) # Pega da planilha
-        saida = "18:00" # Fixo, baseado no template
-        
-        atividade_texto = str(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
-        if pd.isna(atividade_texto):
-            atividade_texto = ''
-        
-        # --- Lógica para desenhar células com alturas variáveis ---
-        
-        # Pega a posição Y atual antes de desenhar a linha
-        y_inicial = pdf.get_y()
-        
-        # Desenha as 3 primeiras células (altura será corrigida depois)
-        pdf.cell(w_data, altura_linha_base, data, border=1, align='C')
-        pdf.cell(w_ent, altura_linha_base, entrada, border=1, align='C')
-        pdf.cell(w_sai, altura_linha_base, saida, border=1, align='C')
+        entrada = str(row.get('Horário de Início', ''))
+        saida = "18:00"
+        atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', '') or '')
 
-        # Guarda a posição X para a célula de atividade
+        y_inicio = pdf.get_y()
+
+        pdf.cell(w_data, 6, data, border=1, align='C')
+        pdf.cell(w_ent, 6, entrada, border=1, align='C')
+        pdf.cell(w_sai, 6, saida, border=1, align='C')
+
         x_ati = pdf.get_x()
-        
-        # Desenha a célula de atividade (multi_cell)
-        pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
+        pdf.multi_cell(w_ati, 6, atividade_texto, border=1, align='L')
+        y_final = pdf.get_y()
 
-        # Pega o Y depois da multi_cell (que pode ter várias linhas)
-        y_final_ati = pdf.get_y()
-        
-        # Guarda a posição X para a célula de assinatura
+        h_total = y_final - y_inicio
         x_ass = x_ati + w_ati
-        
-        # Reposiciona para desenhar a última célula (Assinatura)
-        pdf.set_xy(x_ass, y_inicial)
-        
-        # Calcula a altura real que a multi_cell usou
-        h_real = y_final_ati - y_inicial
-        
-        pdf.cell(w_ass, h_real, "", border=1) # Célula de assinatura em branco
-        
-        # Agora, precisamos "corrigir" a altura das 3 primeiras células
-        # Voltando e desenhando retângulos por cima das bordas direitas
-        pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
-        pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
-        pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
+        pdf.set_xy(x_ass, y_inicio)
+        pdf.cell(w_ass, h_total, "", border=1)
 
-        # Move o cursor para baixo da linha mais alta
-        pdf.set_y(y_final_ati)
+        pdf.rect(pdf.l_margin, y_inicio, w_data, h_total)
+        pdf.rect(pdf.l_margin + w_data, y_inicio, w_ent, h_total)
+        pdf.rect(pdf.l_margin + w_data + w_ent, y_inicio, w_sai, h_total)
 
+        pdf.set_y(y_final)
 
-    # --- RODAPÉ (do docx) ---
     pdf.ln(10)
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=10)
-    else:
-        pdf.set_font("Helvetica", size=10)
-        
-    pdf.cell(0, 5, "Observações:", ln=True) #
-    pdf.cell(0, 5, "", border='B', ln=True) # Linha em branco para observações
+    pdf.set_font('DejaVu', '', 10)
+    pdf.cell(0, 6, "Observações:", ln=True)
+    pdf.cell(0, 10, "", border='B', ln=True)
     pdf.ln(15)
-    pdf.cell(0, 5, "VISTO DO PRECEPTOR: _________________________________________ DATA: ____ / ____ / ______", align='L') #
-    
-    # Retorna o PDF (o output padrão já é 'bytes' no fpdf2)
-    return pdf.output()
-# --- FIM DA NOVA FUNÇÃO ---
+    pdf.cell(0, 6, "VISTO DO PRECEPTOR: _________________________________________  DATA: ____ / ____ / ______", ln=True)
+
+    # Retorna bytes diretamente
+    return pdf.output(dest='S').encode('latin1')
+
 
 
 # --- INTERFACE ---
