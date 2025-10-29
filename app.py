@@ -235,9 +235,9 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
         
         h_real = y_final_ati - y_inicial
         
-        x_ass = x_ati + w_ati
-        pdf.set_xy(x_ass, y_inicial)
-        pdf.cell(w_ass, h_real, "", border=1) 
+        # x_ass = x_ati + w_ati
+        # pdf.set_xy(x_ass, y_inicial)
+        # pdf.cell(w_ass, h_real, "", border=1) 
         
         pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
         pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
