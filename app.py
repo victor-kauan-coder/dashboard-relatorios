@@ -301,7 +301,8 @@ if not df.empty:
                 "Selecione o Período:",
                 value=(data_min, data_max),
                 min_value=data_min,
-                max_value=data_max
+                max_value=data_max,
+                format="DD/MM/YYYY"
             )
 
             if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
