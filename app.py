@@ -7,7 +7,7 @@ import traceback
 import locale
 from streamlit.errors import StreamlitSecretNotFoundError
 from fpdf import FPDF  
-
+from datetime import date
 
 meses_ptbr = ["Janeiro", "Fevereiro", "Março", "Abril","Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
@@ -213,7 +213,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
         entrada = limpar_texto(str(row.get('Horário de Início', ''))) # Pega da planilha
         saida = "18:00" # Fixo, baseado no template
         
-        atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
+        atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper()
         if pd.isna(atividade_texto):
             atividade_texto = ''
         
@@ -284,8 +284,9 @@ if not df.empty:
 
     data_inicio, data_fim = None, None
     if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
-        data_min = df['Data da atividade'].min().date()
-        data_max = df['Data da atividade'].max().date()
+        hoje = date.today()
+        data_min = hoje.replace(day=1)  # primeiro dia do mês atual
+        data_max = hoje  # dia atual
 
         if data_min >= data_max:
             unica_data = st.sidebar.date_input(
