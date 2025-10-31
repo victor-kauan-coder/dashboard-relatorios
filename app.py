@@ -7,7 +7,7 @@ import traceback
 import locale
 from streamlit.errors import StreamlitSecretNotFoundError
 from fpdf import FPDF  
-from datetime import date
+from datetime import date,datetime, timedelta
 
 meses_ptbr = ["Janeiro", "Fevereiro", "Março", "Abril","Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
@@ -210,8 +210,21 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     for _, row in df_monitor.iterrows():
         # (MODIFICADO) Limpa os dados da tabela
         data = limpar_texto(row['Data da atividade'].strftime('%d/%m/%Y'))
-        entrada = limpar_texto(str(row.get('Horário de Início', ''))) # Pega da planilha
-        saida = "18:00" # Fixo, baseado no template
+        entrada_str = str(row.get('Horário de Início', '')).strip()
+        try:
+            # Converte a string de hora (ex: "14:00") em objeto datetime
+            entrada_dt = datetime.strptime(entrada_str, "%H:%M")
+            # Soma 4 horas
+            saida_dt = entrada_dt + timedelta(hours=4)
+            # Formata de volta para string "HH:MM"
+            saida = saida_dt.strftime("%H:%M")
+        except ValueError:
+            # Caso o campo venha vazio ou inválido
+            entrada_str = ""
+            saida = ""
+            
+        entrada = limpar_texto(entrada_str)
+        saida = limpar_texto(saida)
         
         atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper()
         if pd.isna(atividade_texto):
