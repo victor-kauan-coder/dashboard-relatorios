@@ -298,28 +298,25 @@ if not df.empty:
     data_inicio, data_fim = None, None
     if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
         hoje = date.today()
-        data_min = hoje.replace(day=1)  # primeiro dia do mês atual
-        data_max = hoje  # dia atual
+        data_min_default = hoje.replace(day=1)  # primeiro dia do mês atual
+        data_max_default = hoje  # dia atual
 
-        if data_min >= data_max:
-            unica_data = st.sidebar.date_input(
-                "Data dos Relatórios:",
-                value=data_min,
-                disabled=True
-            )
-            data_inicio, data_fim = unica_data, unica_data
-            st.sidebar.write("📅 Selecionada:", unica_data.strftime("%d/%m/%Y"))
+        # Defina o intervalo padrão, mas permita escolher qualquer data
+        data_selecionada = st.sidebar.date_input(
+            "Selecione o Período:",
+            value=(data_min_default, data_max_default),
+            format="DD/MM/YYYY"
+        )
+
+        # Garante que temos um intervalo válido
+        if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
+            data_inicio, data_fim = data_selecionada
         else:
-            data_selecionada = st.sidebar.date_input(
-                "Selecione o Período:",
-                value=(data_min, data_max),
-                min_value=data_min,
-                max_value=data_max,
-                format="DD/MM/YYYY"
-            )
+            data_inicio, data_fim = data_min_default, data_max_default
 
-            if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
-                data_inicio, data_fim = data_selecionada
+        st.sidebar.write(
+            f"📅 Período selecionado: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}"
+        )
 
     # --- FILTROS (CÁLCULO) ---
     df_filtrado = df.copy()
