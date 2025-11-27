@@ -272,7 +272,7 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.ln(15)
     pdf.cell(0, 5, limpar_texto("ASSINATURA DO MONITOR: _________________________________________ "), align='L')
     pdf.ln(15)
-    pdf.cell(0, 5, limpar_texto("VISTO DO PRECEPTOR: _________________________________________ DATA: ____ / ____ / ______"), align='L') #
+    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {date.today().day} / {date.today().month} / {date.today().year}"), align='L') #
     
     # (MANTIDO) Retorna 'bytes' (sem o .encode('latin1') que causava erro)
     return pdf.output()
