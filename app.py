@@ -1,4 +1,3 @@
-# app.py (Versão final com PDF de Frequência Mensal)
 import streamlit as st
 import pandas as pd
 import gspread
@@ -6,36 +5,31 @@ from google.oauth2.service_account import Credentials
 import traceback
 import locale
 from streamlit.errors import StreamlitSecretNotFoundError
-from fpdf import FPDF  
-from datetime import date,datetime, timedelta
+from fpdf import FPDF
+from datetime import date, datetime, timedelta
 
-meses_ptbr = ["Janeiro", "Fevereiro", "Março", "Abril","Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-
-# --- CONFIGURA LOCALE PARA PORTUGUÊS BRASIL ---
+# --- CONFIGURA LOCALE ---
 try:
-    locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")  # Linux/macOS
+    locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
 except:
     try:
-        locale.setlocale(locale.LC_ALL, "Portuguese_Brazil.1252")  # Windows
+        locale.setlocale(locale.LC_ALL, "Portuguese_Brazil.1252")
     except:
-        pass  # Se não conseguir, segue padrão do sistema
+        pass
 
-# --- CONFIGURAÇÕES ---
+# --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(
     page_title="Dashboard de Relatórios",
     layout="wide",
-    page_icon="pet-logo.png"
+    page_icon="pet-logo.png" # Certifique-se que este arquivo existe ou remova a linha
 )
+
+# CSS para ajuste do sidebar
 st.markdown(
     """
     <style>
-        div[data-testid="stSidebarUserContent"] {
-            padding-top: 1rem;
-        }
-        
-        div[data-testid="stSidebarUserContent"] img {
-            margin-top: -50px;
-        }
+        div[data-testid="stSidebarUserContent"] { padding-top: 1rem; }
+        div[data-testid="stSidebarUserContent"] img { margin-top: -50px; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -43,9 +37,9 @@ st.markdown(
 
 URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE7t3kJy3Wxaw5APSVomBVOA/edit?usp=sharing"
 
-# --- FUNÇÃO PARA CARREGAR DADOS ---
-
-
+# ==========================================
+# FUNÇÕES DE DADOS (Google Sheets)
+# ==========================================
 @st.cache_data(ttl=60)
 def carregar_dados():
     try:
@@ -54,23 +48,16 @@ def carregar_dados():
             "https://www.googleapis.com/auth/drive.file"
         ]
 
-        # --- CREDENCIAIS ---
+        # Tenta carregar credenciais (Secrets ou Arquivo JSON)
         try:
             if "gcp_service_account" in st.secrets:
                 creds_dict = dict(st.secrets["gcp_service_account"])
-                creds_dict['private_key'] = creds_dict['private_key'].replace(
-                    '\\n', '\n')
-                creds = Credentials.from_service_account_info(
-                    creds_dict, scopes=scopes)
+                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+                creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
             else:
-                creds = Credentials.from_service_account_file(
-                    "credentials.json", scopes=scopes)
-        except StreamlitSecretNotFoundError:
-            creds = Credentials.from_service_account_file(
-                "credentials.json", scopes=scopes)
-        except FileNotFoundError:
-            st.error(
-                "O arquivo 'credentials.json' não foi encontrado. Coloque-o no diretório para execução local.")
+                creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        except (StreamlitSecretNotFoundError, FileNotFoundError):
+            st.error("Arquivo 'credentials.json' não encontrado e secrets não configurados.")
             return pd.DataFrame()
 
         client = gspread.authorize(creds)
@@ -92,13 +79,11 @@ def carregar_dados():
 
             # Corrige horários
             if 'Horário de Início' in dados.columns:
-                temp_time = pd.to_datetime(
-                    dados['Horário de Início'], errors='coerce')
+                temp_time = pd.to_datetime(dados['Horário de Início'], errors='coerce')
                 dados['Horário de Início'] = temp_time.dt.strftime('%H:%M')
 
             return dados
         else:
-            st.warning("A planilha está vazia ou não contém dados.")
             return pd.DataFrame()
 
     except Exception:
@@ -106,63 +91,45 @@ def carregar_dados():
         st.code(traceback.format_exc())
         return pd.DataFrame()
 
-import unicodedata
+# ==========================================
+# FUNÇÕES DE PDF
+# ==========================================
 
-# from fpdf import FPDF
-# from datetime import datetime, timedelta, date
-# import pandas as pd
-
-# --- FUNÇÃO 1: LIMPAR TEXTO (CORRIGIDA) ---
 def limpar_texto(texto):
     """
-    Prepara o texto para ser aceito pelo FPDF (fontes padrão Core).
-    Codifica para Latin-1 e substitui caracteres incompatíveis por '?'.
+    Limpa o texto para ser compatível com PDF (Latin-1).
+    Remove caracteres Unicode complexos e mantêm acentos básicos.
     """
     if pd.isna(texto) or texto == "":
         return ""
     
     texto_str = str(texto)
+    # Substituições manuais comuns
+    texto_str = texto_str.replace('–', '-').replace('—', '-')
+    texto_str = texto_str.replace('“', '"').replace('”', '"')
+    texto_str = texto_str.replace('‘', "'").replace('’', "'")
+    texto_str = texto_str.replace('•', '-')
     
-    # 1. Substituições manuais para caracteres de tipografia (Word/Excel)
-    texto_str = texto_str.replace('–', '-') # En dash
-    texto_str = texto_str.replace('—', '-') # Em dash
-    texto_str = texto_str.replace('“', '"') # Aspas curvas
-    texto_str = texto_str.replace('”', '"') # Aspas curvas
-    texto_str = texto_str.replace('‘', "'") # Apóstrofo curvo
-    texto_str = texto_str.replace('’', "'") # Apóstrofo curvo
-    texto_str = texto_str.replace('•', '-') # Bullet
-    
-    # 2. Codificação para Latin-1 (ISO-8859-1)
-    # Fontes como Arial e Helvetica no FPDF padrão usam essa codificação.
-    # O 'replace' evita erro se aparecer um emoji ou caractere chinês, trocando por '?'
+    # Codificação forçada para Latin-1 (Core fonts do FPDF)
     try:
         return texto_str.encode('latin-1', 'replace').decode('latin-1')
     except Exception:
         return texto_str
 
-
-# --- FUNÇÃO 2: GERAR PDF (CORRIGIDA) ---
-def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
+def _desenhar_pagina_monitor(pdf, df_monitor, nome_monitor, mes, ano, preceptora):
     """
-    Cria um PDF de folha de frequência baseado no template .docx
-    usando os dados filtrados do DataFrame.
+    Desenha o conteúdo (cabeçalho + tabela) de UM monitor na página atual.
     """
-    
-    # Lista de meses para o cabeçalho
-    meses_ptbr = [
-        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-    ]
+    meses_ptbr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Define a fonte.
+    # Tenta usar Arial, fallback para Helvetica
     try:
         pdf.set_font("Arial", 'B', 12)
-    except Exception:
+        fonte_padrao = "Arial"
+    except:
         pdf.set_font("Helvetica", 'B', 12)
+        fonte_padrao = "Helvetica"
 
     # --- CABEÇALHO ---
     pdf.cell(0, 5, limpar_texto("UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI"), ln=True, align='C') 
@@ -172,12 +139,12 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.ln(5)
 
     # --- METADADOS ---
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=10)
-    else:
-        pdf.set_font("Helvetica", size=10)
-        
-    pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes-1].upper()} / {ano}"), ln=True) 
+    pdf.set_font(fonte_padrao, size=10)
+    
+    # Garante que o mês seja um índice válido (1-12)
+    mes_idx = int(mes) - 1 if 1 <= int(mes) <= 12 else 0
+    
+    pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_idx].upper()} / {ano}"), ln=True) 
     pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True)
     pdf.cell(0, 5, limpar_texto("Local de Atuação: CAPS AD - Teresina / PI"), ln=True)
     pdf.cell(0, 5, limpar_texto(f"Preceptora: {preceptora}"), ln=True)
@@ -185,282 +152,239 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.ln(5)
 
     # --- TABELA ---
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", 'B', 8)
-    else:
-        pdf.set_font("Helvetica", 'B', 8)
+    pdf.set_font(fonte_padrao, 'B', 8)
+    w_data, w_ent, w_sai, w_ati = 25, 25, 25, 85
     
-    # Larguras das colunas (total ~190mm)
-    w_data = 25
-    w_ent = 25
-    w_sai = 25
-    w_ati = 85
-    # w_ass = 30 # (Não usado no código atual)
-    
-    # Cabeçalho da Tabela
     pdf.cell(w_data, 7, limpar_texto("Data"), border=1, align='C')
     pdf.cell(w_ent, 7, limpar_texto("Horário de Entrada"), border=1, align='C')
     pdf.cell(w_sai, 7, limpar_texto("Horário de Saída"), border=1, align='C')
     pdf.cell(w_ati, 7, limpar_texto("Atividades Desenvolvidas"), border=1, align='C')
     pdf.ln()
 
-    # Conteúdo da Tabela
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=8)
-    else:
-        pdf.set_font("Helvetica", size=8)
-        
-    # Garante ordenação
-    df_monitor = df_monitor.sort_values(by='Data da atividade')
+    # --- CONTEÚDO DA TABELA ---
+    pdf.set_font(fonte_padrao, size=8)
+    if not df_monitor.empty:
+        df_monitor = df_monitor.sort_values(by='Data da atividade')
     
     altura_linha_base = 5
     
     for _, row in df_monitor.iterrows():
-        # Tratamento da Data
+        # Data
         data_val = row['Data da atividade']
-        if isinstance(data_val, str):
-             data = limpar_texto(data_val)
-        else:
-             data = limpar_texto(data_val.strftime('%d/%m/%Y'))
+        data = limpar_texto(data_val.strftime('%d/%m/%Y')) if not pd.isna(data_val) else ""
 
-        # Tratamento do Horário
+        # Horários
         entrada_str = str(row.get('Horário de Início', '')).strip()
         try:
-            # Converte string "HH:MM" para datetime e soma 4h
             entrada_dt = datetime.strptime(entrada_str, "%H:%M")
             saida_dt = entrada_dt + timedelta(hours=4)
             saida = saida_dt.strftime("%H:%M")
         except ValueError:
-            # Se vazio ou inválido
             saida = ""
-            
+        
         entrada = limpar_texto(entrada_str)
         saida = limpar_texto(saida)
         
-        # Tratamento da Atividade
-        # upper() converte para maiúsculo, mas limpar_texto deve vir depois ou antes, 
-        # aqui garantimos que limpar_texto pegue o resultado final
-        raw_atividade = str(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
-        if raw_atividade.lower() == 'nan': raw_atividade = ''
-        atividade_texto = limpar_texto(raw_atividade.upper())
+        # Atividade
+        raw_ativ = str(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
+        if raw_ativ.lower() == 'nan': raw_ativ = ''
+        atividade_texto = limpar_texto(raw_ativ.upper())
         
-        # --- Renderização da Linha (cálculo de altura) ---
+        # Renderização
         y_inicial = pdf.get_y()
         
-        # Células simples (sem quebra de linha)
         pdf.cell(w_data, altura_linha_base, data, border=0, align='C')
         pdf.cell(w_ent, altura_linha_base, entrada, border=0, align='C')
         pdf.cell(w_sai, altura_linha_base, saida, border=0, align='C')
 
-        # Multi-cell para a atividade (pode quebrar linha e aumentar altura)
         x_ati = pdf.get_x()
         pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
         y_final_ati = pdf.get_y()
         
         h_real = y_final_ati - y_inicial
         
-        # Desenha as bordas das células anteriores para ficarem com a mesma altura
+        # Bordas laterais para acompanhar altura
         pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
         pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
         pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
 
-        # Posiciona o cursor para a próxima linha
         pdf.set_y(y_final_ati)
         
-        # Checa quebra de página manual para não cortar bordas
-        if pdf.get_y() > 270: 
+        # Quebra de página se necessário
+        if pdf.get_y() > 260: 
              pdf.add_page()
-             # Redesenha cabeçalho da tabela se quiser (opcional)
-             # pdf.cell(w_data, 7, limpar_texto("Data"), border=1, align='C')...
 
     # --- RODAPÉ ---
     pdf.ln(10)
-    if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=10)
-    else:
-        pdf.set_font("Helvetica", size=10)
-        
+    pdf.set_font(fonte_padrao, size=10)
     pdf.cell(0, 5, limpar_texto("Observações:"), ln=True)
     pdf.cell(0, 5, "", border='B', ln=True)
     pdf.ln(15)
     pdf.cell(0, 5, limpar_texto("ASSINATURA DO MONITOR: _________________________________________ "), align='L')
     pdf.ln(15)
     
-    # Data atual no rodapé
-    dia = date.today().day
-    mes_atual = date.today().month
-    ano_atual = date.today().year
-    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {dia} / {mes_atual} / {ano_atual}"), align='L')
+    dia, mes_hj, ano_hj = date.today().day, date.today().month, date.today().year
+    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {dia} / {mes_hj} / {ano_hj}"), align='L')
 
-    # Retorna o binário do PDF codificado em latin-1
-    saida = pdf.output(dest='S')
+
+def gerar_pdf_monitores(df_geral, lista_nomes, mes, ano, col_nome_monitor='Nome do monitor'):
+    """
+    Gera um único arquivo PDF contendo as frequências de todos os monitores listados.
+    """
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     
+    for nome in lista_nomes:
+        pdf.add_page()
+        
+        # Filtra dados do monitor específico
+        df_indiv = df_geral[df_geral[col_nome_monitor] == nome].copy()
+        
+        if not df_indiv.empty:
+            # Descobre o preceptor automaticamente baseado nos dados filtrados
+            if 'Nome do preceptor' in df_indiv.columns:
+                precep = df_indiv['Nome do preceptor'].iloc[0]
+            else:
+                precep = "______________"
+            
+            _desenhar_pagina_monitor(pdf, df_indiv, nome, mes, ano, precep)
+        else:
+            # Caso raro: Monitor selecionado mas sem dados no período
+            pdf.cell(0, 10, limpar_texto(f"Sem dados para {nome} neste período."), ln=True)
+
+    # Retorna os bytes do arquivo (compatível com FPDF antigo e novo)
+    saida = pdf.output(dest='S')
     if isinstance(saida, str):
         return saida.encode('latin-1')
     else:
         return bytes(saida)
 
 
-
-# --- INTERFACE ---
+# ==========================================
+# INTERFACE STREAMLIT
+# ==========================================
 st.title("📊 Dashboard de Relatórios e Presenças")
 st.markdown("---")
 
 df = carregar_dados()
-st.sidebar.image("banner-pet.png", width=300)
+
+# Imagem do banner (se existir)
+# st.sidebar.image("banner-pet.png", width=300) 
 
 if not df.empty:
     st.sidebar.header("Filtros:")
+    
+    # Filtros
     monitores = sorted(df['Nome do monitor'].unique())
-    monitor_selecionado = st.sidebar.multiselect(
-        "Selecione o Monitor:", options=monitores, default=[])
+    monitor_selecionado = st.sidebar.multiselect("Selecione o(s) Monitor(es):", options=monitores, default=[])
+    
     preceptores = sorted(df['Nome do preceptor'].unique())
-    preceptor_selecionado = st.sidebar.multiselect(
-        "Selecione o(a) Preceptor(a):", options=preceptores, default=[])
+    preceptor_selecionado = st.sidebar.multiselect("Selecione o(a) Preceptor(a):", options=preceptores, default=[])
 
+    # Datas
     data_inicio, data_fim = None, None
-    if 'Data da atividade' in df.columns and not df['Data da atividade'].isnull().all():
+    if 'Data da atividade' in df.columns:
         hoje = date.today()
-        data_min_default = hoje.replace(day=1)  # primeiro dia do mês atual
-        data_max_default = hoje  # dia atual
-
-        # Defina o intervalo padrão, mas permita escolher qualquer data
-        data_selecionada = st.sidebar.date_input(
-            "Selecione o Período:",
-            value=(data_min_default, data_max_default),
-            format="DD/MM/YYYY"
-        )
-
-        # Garante que temos um intervalo válido
-        if isinstance(data_selecionada, tuple) and len(data_selecionada) == 2:
-            data_inicio, data_fim = data_selecionada
+        d_min = hoje.replace(day=1)
+        d_max = hoje
+        sel_data = st.sidebar.date_input("Selecione o Período:", value=(d_min, d_max), format="DD/MM/YYYY")
+        
+        if isinstance(sel_data, tuple) and len(sel_data) == 2:
+            data_inicio, data_fim = sel_data
         else:
-            data_inicio, data_fim = data_min_default, data_max_default
+            data_inicio, data_fim = d_min, d_max
+            
+        st.sidebar.write(f"📅 Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
 
-        st.sidebar.write(
-            f"📅 Período selecionado: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}"
-        )
-
-    # --- FILTROS (CÁLCULO) ---
+    # --- APLICAÇÃO DOS FILTROS ---
     df_filtrado = df.copy()
     if monitor_selecionado:
-        df_filtrado = df_filtrado[df_filtrado['Nome do monitor'].isin(
-            monitor_selecionado)]
+        df_filtrado = df_filtrado[df_filtrado['Nome do monitor'].isin(monitor_selecionado)]
     if preceptor_selecionado:
-        df_filtrado = df_filtrado[df_filtrado['Nome do preceptor'].isin(
-            preceptor_selecionado)]
+        df_filtrado = df_filtrado[df_filtrado['Nome do preceptor'].isin(preceptor_selecionado)]
     if data_inicio and data_fim:
         df_filtrado = df_filtrado[
-            (df_filtrado['Data da atividade'].dt.date >= data_inicio) &
+            (df_filtrado['Data da atividade'].dt.date >= data_inicio) & 
             (df_filtrado['Data da atividade'].dt.date <= data_fim)
         ]
-        
-    # --- (NOVO) BOTÃO DE DOWNLOAD DA FREQUÊNCIA ---
-    # Só mostra se UM monitor estiver selecionado
-    if len(monitor_selecionado) == 1:
-        # Usa o df_filtrado, que já contém os dados corretos
-        if not df_filtrado.empty:
-            nome_monitor = monitor_selecionado[0]
-            # Pega a preceptora do primeiro registro (já que está filtrado)
-            preceptora = df_filtrado['Nome do preceptor'].iloc[0] #
-            
-            # Pega o Mês/Ano da primeira entrada para o título
-            mes = df_filtrado['Data da atividade'].iloc[0].month
-            ano = df_filtrado['Data da atividade'].iloc[0].year
-            data_pdf_inicio = df_filtrado['Data da atividade'].min().strftime('%d-%m')
-            data_pdf_fim = df_filtrado['Data da atividade'].max().strftime('%d-%m')
 
+    # ==========================================
+    # BOTÃO DE DOWNLOAD (PDF UNIFICADO)
+    # ==========================================
+    if monitor_selecionado and not df_filtrado.empty:
+        st.sidebar.markdown("---")
+        st.sidebar.write(f"📑 **Gerar PDF para {len(monitor_selecionado)} monitor(es)**")
+        
+        # Pega dados de referência para o nome do arquivo
+        d_ini_str = df_filtrado['Data da atividade'].min().strftime('%d-%m')
+        d_fim_str = df_filtrado['Data da atividade'].max().strftime('%d-%m')
+        
+        # Pega mês/ano de referência (da primeira data encontrada)
+        mes_ref = df_filtrado['Data da atividade'].iloc[0].month
+        ano_ref = df_filtrado['Data da atividade'].iloc[0].year
+
+        if st.sidebar.button("Preparar Arquivo PDF"):
             try:
-                # 1. Gera os dados do PDF
-                pdf_data_freq = criar_pdf_frequencia(
-                    df_filtrado, 
-                    nome_monitor, 
-                    mes, 
-                    ano,
-                    preceptora
+                # Gera o PDF usando a função unificada
+                pdf_bytes = gerar_pdf_monitores(
+                    df_geral=df_filtrado, 
+                    lista_nomes=monitor_selecionado, 
+                    mes=mes_ref, 
+                    ano=ano_ref
                 )
                 
-                # --- (ESTA É A CORREÇÃO) ---
-                # 2. Garante que os dados estão no formato 'bytes'
-                pdf_bytes_freq = bytes(pdf_data_freq)
+                label_btn = "📥 Baixar PDF Individual" if len(monitor_selecionado) == 1 else "📥 Baixar PDF Consolidado"
+                nome_arquivo = f"Frequencia_{len(monitor_selecionado)}_Monitores_{d_ini_str}_a_{d_fim_str}.pdf"
                 
-                # 3. Define o nome do arquivo
-                nome_arquivo_freq = f"Frequencia_{nome_monitor.replace(' ', '_')}_{data_pdf_inicio}_a_{data_pdf_fim}.pdf"
-                
-                # 4. Cria o botão de download
                 st.sidebar.download_button(
-                    label="📥 Baixar Folha de Frequência (PDF)",
-                    data=pdf_bytes_freq, # Usa os dados em 'bytes'
-                    file_name=nome_arquivo_freq,
-                    mime="application/pdf",
-                    key="btn_freq_pdf"
+                    label=label_btn,
+                    data=pdf_bytes,
+                    file_name=nome_arquivo,
+                    mime="application/pdf"
                 )
             except Exception as e:
-                st.sidebar.error(f"Erro ao gerar PDF de frequência: {e}")
-                st.sidebar.code(traceback.format_exc()) # Adicionado para debug
-        else:
-            # Mostra info se o filtro não retornou nada
-            st.sidebar.info("Nenhum registro no período para gerar a frequência.")
-    # --- FIM DO NOVO BLOCO ---
+                st.sidebar.error(f"Erro ao gerar PDF: {e}")
+                st.sidebar.code(traceback.format_exc())
+    elif monitor_selecionado:
+        st.sidebar.info("Sem dados para os monitores selecionados neste período.")
 
-
-    # --- TABELA ---
+    # --- EXIBIÇÃO DA TABELA ---
     st.header(f"Relatórios Encontrados: {len(df_filtrado)}")
     st.dataframe(df_filtrado)
     st.markdown("---")
 
     # --- DETALHES ---
     st.header("Visualizar Relatório Detalhado")
-    df_filtrado_detalhes = df_filtrado.sort_values(by='Data da atividade', ascending=False)
-    if not df_filtrado_detalhes.empty:
-        opcoes_relatorios = [
-            f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}"
-            for _, row in df_filtrado_detalhes.iterrows()
-        ]
-        relatorio_escolhido = st.selectbox(
-            "Selecione um relatório:", options=opcoes_relatorios)
+    df_detalhes = df_filtrado.sort_values(by='Data da atividade', ascending=False)
+    
+    if not df_detalhes.empty:
+        opcoes = [f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}" for _, row in df_detalhes.iterrows()]
+        escolha = st.selectbox("Selecione um relatório:", options=opcoes)
 
-        if relatorio_escolhido:
-            indice_selecionado = opcoes_relatorios.index(relatorio_escolhido)
-            id_real = df_filtrado_detalhes.index[indice_selecionado]
-            relatorio_completo = df.loc[id_real]
+        if escolha:
+            idx = opcoes.index(escolha)
+            id_real = df_detalhes.index[idx]
+            rel = df.loc[id_real]
 
-            tutores = relatorio_completo.get('tutores presentes')
-            orientadora = relatorio_completo.get('Orientadora de serviço')
-            texto_tutores = 'Nenhuma' if pd.isna(
-                tutores) or tutores == '' else str(tutores)
-            texto_orientadora = 'Ausente' if pd.isna(
-                orientadora) or orientadora == '' else str(orientadora)
-            horario = relatorio_completo.get('Horário de Início')
-            texto_horario = 'Não informado' if pd.isna(
-                horario) or horario == '' else str(horario)
-            data_str = relatorio_completo['Data da atividade'].strftime('%d/%m/%Y')
-            nome_monitor_str = str(relatorio_completo['Nome do monitor']).replace(' ', '_')
+            # Tratamento de Nulos para exibição
+            tutores = str(rel.get('tutores presentes', 'Nenhuma'))
+            orient = str(rel.get('Orientadora de serviço', 'Ausente'))
+            horario = str(rel.get('Horário de Início', 'Não informado'))
+            
+            st.subheader(f"Relatório de: {rel['Nome do monitor']}")
+            st.write(f"**Data:** {rel['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {rel['Nome do preceptor']}")
+            st.write(f"**Orientadora:** {orient} | **Tutoras:** {tutores} | **Horário:** {horario}")
+            st.write(f"**Local:** {rel.get('Local Específico:', '')}")
 
-            st.subheader(
-                f"Relatório de: {relatorio_completo['Nome do monitor']}")
-            st.write(
-                f"**Data:** {data_str} "
-                f"| **Preceptor(a):** {relatorio_completo['Nome do preceptor']} "
-                f"| **Orientadora de Serviço:** {texto_orientadora} "
-                f"| **Tutoras presentes:** {texto_tutores}"
-            )
-            st.write(f"**Horário:** {texto_horario}")
-            st.write(f"**Local:** {relatorio_completo['Local Específico:']}")
-
-            with st.expander("Atividade(s) Realizada(s)"):
-                st.write(relatorio_completo['ATIVIDADE(S) REALIZADA(S)'])
-            with st.expander("Objetivo Da(s) Atividade(s)"):
-                st.write(relatorio_completo['OBJETIVO DA(S) ATIVIDADE(S)'])
+            with st.expander("Atividade(s) Realizada(s)", expanded=True):
+                st.write(rel.get('ATIVIDADE(S) REALIZADA(S)', ''))
+            with st.expander("Objetivo"):
+                st.write(rel.get('OBJETIVO DA(S) ATIVIDADE(S)', ''))
             with st.expander("Relato Fundamentado"):
-                st.write(relatorio_completo['RELATO FUNDAMENTADO'])
+                st.write(rel.get('RELATO FUNDAMENTADO', ''))
             with st.expander("Reflexões Críticas"):
-                st.write(relatorio_completo['REFLEXÕES CRÍTICAS'])
-            
-            # --- O BLOCO DE DOWNLOAD INDIVIDUAL FOI REMOVIDO DAQUI ---
-            
+                st.write(rel.get('REFLEXÕES CRÍTICAS', ''))
     else:
-        st.warning("Nenhum relatório encontrado com os filtros atuais.")
+        st.warning("Nenhum relatório encontrado.")
 else:
-    st.warning(
-        "Não foi possível carregar os dados. Verifique a URL da planilha e as permissões.")
+    st.warning("Não foi possível carregar os dados. Verifique credenciais e planilha.")
