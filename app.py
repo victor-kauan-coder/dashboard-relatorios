@@ -293,7 +293,12 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {dia} / {mes_atual} / {ano_atual}"), align='L')
 
     # Retorna o binário do PDF codificado em latin-1
-    return pdf.output(dest='S').encode('latin-1')
+    saida = pdf.output(dest='S')
+    
+    if isinstance(saida, str):
+        return saida.encode('latin-1')
+    else:
+        return bytes(saida)
 
 
 
