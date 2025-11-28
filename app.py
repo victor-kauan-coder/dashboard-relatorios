@@ -108,29 +108,47 @@ def carregar_dados():
 
 import unicodedata
 
+# from fpdf import FPDF
+# from datetime import datetime, timedelta, date
+# import pandas as pd
+
+# --- FUNÇÃO 1: LIMPAR TEXTO (CORRIGIDA) ---
 def limpar_texto(texto):
     """
-    Converte o texto para Latin-1 (padrão do FPDF para fontes Core).
-    Substitui caracteres incompatíveis por '?' para evitar erros.
+    Prepara o texto para ser aceito pelo FPDF (fontes padrão Core).
+    Codifica para Latin-1 e substitui caracteres incompatíveis por '?'.
     """
     if pd.isna(texto) or texto == "":
         return ""
     
     texto_str = str(texto)
     
+    # 1. Substituições manuais para caracteres de tipografia (Word/Excel)
+    texto_str = texto_str.replace('–', '-') # En dash
+    texto_str = texto_str.replace('—', '-') # Em dash
+    texto_str = texto_str.replace('“', '"') # Aspas curvas
+    texto_str = texto_str.replace('”', '"') # Aspas curvas
+    texto_str = texto_str.replace('‘', "'") # Apóstrofo curvo
+    texto_str = texto_str.replace('’', "'") # Apóstrofo curvo
+    texto_str = texto_str.replace('•', '-') # Bullet
+    
+    # 2. Codificação para Latin-1 (ISO-8859-1)
+    # Fontes como Arial e Helvetica no FPDF padrão usam essa codificação.
+    # O 'replace' evita erro se aparecer um emoji ou caractere chinês, trocando por '?'
     try:
-        # Tenta codificar para latin-1 (usado por Arial/Helvetica no FPDF)
-        # 'replace' coloca uma ? se o caractere não existir no latin-1 (ex: emojis)
         return texto_str.encode('latin-1', 'replace').decode('latin-1')
     except Exception:
         return texto_str
 
+
+# --- FUNÇÃO 2: GERAR PDF (CORRIGIDA) ---
 def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     """
     Cria um PDF de folha de frequência baseado no template .docx
     usando os dados filtrados do DataFrame.
     """
-    # Mapeamento de meses (necessário pois a variavel não estava no snippet)
+    
+    # Lista de meses para o cabeçalho
     meses_ptbr = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
@@ -172,12 +190,12 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     else:
         pdf.set_font("Helvetica", 'B', 8)
     
-    # Larguras das colunas
+    # Larguras das colunas (total ~190mm)
     w_data = 25
     w_ent = 25
     w_sai = 25
     w_ati = 85
-    w_ass = 30
+    # w_ass = 30 # (Não usado no código atual)
     
     # Cabeçalho da Tabela
     pdf.cell(w_data, 7, limpar_texto("Data"), border=1, align='C')
@@ -192,55 +210,68 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     else:
         pdf.set_font("Helvetica", size=8)
         
+    # Garante ordenação
     df_monitor = df_monitor.sort_values(by='Data da atividade')
+    
     altura_linha_base = 5
     
     for _, row in df_monitor.iterrows():
-        # Tratamento de Data
-        data_raw = row['Data da atividade']
-        if isinstance(data_raw, str):
-             # Caso venha como string do pandas, tenta converter ou usa direto
-             data = limpar_texto(data_raw)
+        # Tratamento da Data
+        data_val = row['Data da atividade']
+        if isinstance(data_val, str):
+             data = limpar_texto(data_val)
         else:
-             data = limpar_texto(data_raw.strftime('%d/%m/%Y'))
+             data = limpar_texto(data_val.strftime('%d/%m/%Y'))
 
-        # Tratamento de Horários
+        # Tratamento do Horário
         entrada_str = str(row.get('Horário de Início', '')).strip()
         try:
-            # Tenta converter formato HH:MM
+            # Converte string "HH:MM" para datetime e soma 4h
             entrada_dt = datetime.strptime(entrada_str, "%H:%M")
             saida_dt = entrada_dt + timedelta(hours=4)
             saida = saida_dt.strftime("%H:%M")
         except ValueError:
-            # Se der erro, mantém o que veio ou deixa vazio
+            # Se vazio ou inválido
             saida = ""
             
         entrada = limpar_texto(entrada_str)
         saida = limpar_texto(saida)
         
-        # Tratamento de Atividades
-        atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper()
+        # Tratamento da Atividade
+        # upper() converte para maiúsculo, mas limpar_texto deve vir depois ou antes, 
+        # aqui garantimos que limpar_texto pegue o resultado final
+        raw_atividade = str(row.get('ATIVIDADE(S) REALIZADA(S)', ''))
+        if raw_atividade.lower() == 'nan': raw_atividade = ''
+        atividade_texto = limpar_texto(raw_atividade.upper())
         
-        # Renderização da Linha
+        # --- Renderização da Linha (cálculo de altura) ---
         y_inicial = pdf.get_y()
         
+        # Células simples (sem quebra de linha)
         pdf.cell(w_data, altura_linha_base, data, border=0, align='C')
         pdf.cell(w_ent, altura_linha_base, entrada, border=0, align='C')
         pdf.cell(w_sai, altura_linha_base, saida, border=0, align='C')
 
-        # Multi-cell para a atividade (pode quebrar linha)
+        # Multi-cell para a atividade (pode quebrar linha e aumentar altura)
         x_ati = pdf.get_x()
         pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
         y_final_ati = pdf.get_y()
         
         h_real = y_final_ati - y_inicial
         
-        # Desenha as bordas das outras colunas para acompanhar a altura da atividade
+        # Desenha as bordas das células anteriores para ficarem com a mesma altura
         pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
         pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
         pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
 
+        # Posiciona o cursor para a próxima linha
         pdf.set_y(y_final_ati)
+        
+        # Checa quebra de página manual para não cortar bordas
+        if pdf.get_y() > 270: 
+             pdf.add_page()
+             # Redesenha cabeçalho da tabela se quiser (opcional)
+             # pdf.cell(w_data, 7, limpar_texto("Data"), border=1, align='C')...
 
     # --- RODAPÉ ---
     pdf.ln(10)
@@ -254,9 +285,14 @@ def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     pdf.ln(15)
     pdf.cell(0, 5, limpar_texto("ASSINATURA DO MONITOR: _________________________________________ "), align='L')
     pdf.ln(15)
-    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {date.today().day} / {date.today().month} / {date.today().year}"), align='L')
+    
+    # Data atual no rodapé
+    dia = date.today().day
+    mes_atual = date.today().month
+    ano_atual = date.today().year
+    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {dia} / {mes_atual} / {ano_atual}"), align='L')
 
-    # Retorna os bytes do PDF gerado
+    # Retorna o binário do PDF codificado em latin-1
     return pdf.output(dest='S').encode('latin-1')
 
 
