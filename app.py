@@ -109,173 +109,155 @@ def carregar_dados():
 import unicodedata
 
 def limpar_texto(texto):
-    """Remove caracteres Unicode problemáticos para 'latin-1'."""
-    if not isinstance(texto, str):
-        texto = str(texto)
+    """
+    Converte o texto para Latin-1 (padrão do FPDF para fontes Core).
+    Substitui caracteres incompatíveis por '?' para evitar erros.
+    """
+    if pd.isna(texto) or texto == "":
+        return ""
     
-    # 1. Substituições manuais para caracteres comuns
-    texto = texto.replace('–', '-') # En dash
-    texto = texto.replace('—', '-') # Em dash
-    texto = texto.replace('“', '"') # Aspas curvas
-    texto = texto.replace('”', '"') # Aspas curvas
-    texto = texto.replace('‘', "'") # Apóstrofo curvo
-    texto = texto.replace('’', "'") # Apóstrofo curvo
-    texto = texto.replace('•', '-') # Bullet
+    texto_str = str(texto)
     
-    # 2. Normaliza (decompõe acentos) e re-codifica
-    # Isso tentará manter os acentos do 'latin-1' e descartará o resto
     try:
-        # Tenta normalizar e codificar para latin-1, ignorando erros
-        texto = unicodedata.normalize('NFKD', texto).encode('latin-1', 'ignore').decode('latin-1')
-    except:
-        # Fallback para ASCII puro se latin-1 falhar (raro)
-        texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('ascii')
-        
-    return texto
+        # Tenta codificar para latin-1 (usado por Arial/Helvetica no FPDF)
+        # 'replace' coloca uma ? se o caractere não existir no latin-1 (ex: emojis)
+        return texto_str.encode('latin-1', 'replace').decode('latin-1')
+    except Exception:
+        return texto_str
 
-
-# --- FUNÇÃO PDF (Folha de Frequência) ---
 def criar_pdf_frequencia(df_monitor, nome_monitor, mes, ano, preceptora):
     """
     Cria um PDF de folha de frequência baseado no template .docx
     usando os dados filtrados do DataFrame.
     """
+    # Mapeamento de meses (necessário pois a variavel não estava no snippet)
+    meses_ptbr = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ]
+
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Define a fonte. 'Arial' é mais seguro para servidores que 'Helvetica'
+    # Define a fonte.
     try:
         pdf.set_font("Arial", 'B', 12)
     except Exception:
         pdf.set_font("Helvetica", 'B', 12)
 
-
-    # --- CABEÇALHO (do docx) ---
-    # (MODIFICADO) Limpa o texto do cabeçalho
+    # --- CABEÇALHO ---
     pdf.cell(0, 5, limpar_texto("UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI"), ln=True, align='C') 
     pdf.cell(0, 5, limpar_texto("PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL"), ln=True, align='C') 
     pdf.ln(5)
     pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUÊNCIA - MONITORES"), ln=True, align='C') 
     pdf.ln(5)
 
-    # --- METADADOS (do docx) ---
+    # --- METADADOS ---
     if 'Arial' in pdf.font_family:
         pdf.set_font("Arial", size=10)
     else:
         pdf.set_font("Helvetica", size=10)
         
-    # (MODIFICADO) Limpa o texto dos metadados
     pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes-1].upper()} / {ano}"), ln=True) 
-    pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True) #
-    pdf.cell(0, 5, limpar_texto("Local de Atuação: CAPS AD - Teresina / PI"), ln=True) #
-    pdf.cell(0, 5, limpar_texto(f"Preceptora: {preceptora}"), ln=True) #
-    pdf.cell(0, 5, limpar_texto(f"Monitor: {nome_monitor}"), ln=True) # (Adicionado para clareza)
+    pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True)
+    pdf.cell(0, 5, limpar_texto("Local de Atuação: CAPS AD - Teresina / PI"), ln=True)
+    pdf.cell(0, 5, limpar_texto(f"Preceptora: {preceptora}"), ln=True)
+    pdf.cell(0, 5, limpar_texto(f"Monitor: {nome_monitor}"), ln=True)
     pdf.ln(5)
 
     # --- TABELA ---
     if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", 'B', 8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Arial", 'B', 8)
     else:
-        pdf.set_font("Helvetica", 'B', 8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Helvetica", 'B', 8)
     
-    # Larguras das colunas (total 190mm)
+    # Larguras das colunas
     w_data = 25
     w_ent = 25
     w_sai = 25
-    w_ati = 85  # Coluna principal
+    w_ati = 85
     w_ass = 30
     
     # Cabeçalho da Tabela
-    # (MODIFICADO) Limpa o texto do cabeçalho da tabela
     pdf.cell(w_data, 7, limpar_texto("Data"), border=1, align='C')
     pdf.cell(w_ent, 7, limpar_texto("Horário de Entrada"), border=1, align='C')
     pdf.cell(w_sai, 7, limpar_texto("Horário de Saída"), border=1, align='C')
     pdf.cell(w_ati, 7, limpar_texto("Atividades Desenvolvidas"), border=1, align='C')
-    # pdf.cell(w_ass, 7, limpar_texto("Assinatura do Monitor"), border=1, align='C') #
     pdf.ln()
 
     # Conteúdo da Tabela
     if 'Arial' in pdf.font_family:
-        pdf.set_font("Arial", size=8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Arial", size=8)
     else:
-        pdf.set_font("Helvetica", size=8) # (MANTIDO) Fonte tamanho 8
+        pdf.set_font("Helvetica", size=8)
         
-    # Garante que os dados estão em ordem de data
     df_monitor = df_monitor.sort_values(by='Data da atividade')
-    
-    # Define uma altura de linha base
-    altura_linha_base = 5 # (MANTIDO) Altura 5
+    altura_linha_base = 5
     
     for _, row in df_monitor.iterrows():
-        # (MODIFICADO) Limpa os dados da tabela
-        data = limpar_texto(row['Data da atividade'].strftime('%d/%m/%Y'))
+        # Tratamento de Data
+        data_raw = row['Data da atividade']
+        if isinstance(data_raw, str):
+             # Caso venha como string do pandas, tenta converter ou usa direto
+             data = limpar_texto(data_raw)
+        else:
+             data = limpar_texto(data_raw.strftime('%d/%m/%Y'))
+
+        # Tratamento de Horários
         entrada_str = str(row.get('Horário de Início', '')).strip()
         try:
-            # Converte a string de hora (ex: "14:00") em objeto datetime
+            # Tenta converter formato HH:MM
             entrada_dt = datetime.strptime(entrada_str, "%H:%M")
-            # Soma 4 horas
             saida_dt = entrada_dt + timedelta(hours=4)
-            # Formata de volta para string "HH:MM"
             saida = saida_dt.strftime("%H:%M")
         except ValueError:
-            # Caso o campo venha vazio ou inválido
-            entrada_str = ""
+            # Se der erro, mantém o que veio ou deixa vazio
             saida = ""
             
         entrada = limpar_texto(entrada_str)
         saida = limpar_texto(saida)
         
+        # Tratamento de Atividades
         atividade_texto = limpar_texto(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper()
-        if pd.isna(atividade_texto):
-            atividade_texto = ''
         
-        # (REMOVIDO) A função limpar_texto() já faz isso
-        
-        # (MANTIDO) Lógica de formatação da tabela
-        
+        # Renderização da Linha
         y_inicial = pdf.get_y()
         
         pdf.cell(w_data, altura_linha_base, data, border=0, align='C')
         pdf.cell(w_ent, altura_linha_base, entrada, border=0, align='C')
         pdf.cell(w_sai, altura_linha_base, saida, border=0, align='C')
 
+        # Multi-cell para a atividade (pode quebrar linha)
         x_ati = pdf.get_x()
-        
         pdf.multi_cell(w_ati, altura_linha_base, atividade_texto, border=1, align='L')
-
         y_final_ati = pdf.get_y()
         
         h_real = y_final_ati - y_inicial
         
-        # x_ass = x_ati + w_ati
-        # pdf.set_xy(x_ass, y_inicial)
-        # pdf.cell(w_ass, h_real, "", border=1) 
-        
+        # Desenha as bordas das outras colunas para acompanhar a altura da atividade
         pdf.rect(pdf.l_margin, y_inicial, w_data, h_real)
         pdf.rect(pdf.l_margin + w_data, y_inicial, w_ent, h_real)
         pdf.rect(pdf.l_margin + w_data + w_ent, y_inicial, w_sai, h_real)
 
         pdf.set_y(y_final_ati)
 
-
-    # --- RODAPÉ (do docx) ---
+    # --- RODAPÉ ---
     pdf.ln(10)
     if 'Arial' in pdf.font_family:
         pdf.set_font("Arial", size=10)
     else:
         pdf.set_font("Helvetica", size=10)
         
-    # (MODIFICADO) Limpa o texto do rodapé
-    pdf.cell(0, 5, limpar_texto("Observações:"), ln=True) #
-    pdf.cell(0, 5, "", border='B', ln=True) # Linha em branco para observações
+    pdf.cell(0, 5, limpar_texto("Observações:"), ln=True)
+    pdf.cell(0, 5, "", border='B', ln=True)
     pdf.ln(15)
     pdf.cell(0, 5, limpar_texto("ASSINATURA DO MONITOR: _________________________________________ "), align='L')
     pdf.ln(15)
-    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {date.today().day} / {date.today().month} / {date.today().year}"), align='L') #
-    
-    # (MANTIDO) Retorna 'bytes' (sem o .encode('latin1') que causava erro)
-    return pdf.output()
+    pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR: _________________________________________ DATA: {date.today().day} / {date.today().month} / {date.today().year}"), align='L')
+
+    # Retorna os bytes do PDF gerado
+    return pdf.output(dest='S').encode('latin-1')
 
 
 
