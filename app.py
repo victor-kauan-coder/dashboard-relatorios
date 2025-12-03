@@ -339,19 +339,29 @@ if not df.empty:
             # --- AQUI ESTÁ A MUDANÇA PARA O FORMATO DA IMAGEM 2 ---
             
             # Bloco 1: Atividade
-            with st.expander("v Atividade(s) Realizada(s)", expanded=True):
+            with st.expander(" Atividade(s) Realizada(s)", expanded=True):
                 texto_atividade = rel.get('ATIVIDADE(S) REALIZADA(S)', '')
                 if not texto_atividade:
                     texto_atividade = "Não informado."
                 st.write(texto_atividade)
-
-            # Bloco 2: Relato
-            with st.expander("v Relato com Fundamentação Teórica", expanded=True):
+            # Bloco 2: Objetivo
+            with st.expander("Objetivo Da(s) Atividade(s)", expanded=True):
+                texto_atividade = rel.get('OBJETIVO DA(S) ATIVIDADE(S)', '')
+                if not texto_atividade:
+                    texto_atividade = "Não informado."
+                st.write(texto_atividade)
+            # Bloco 3: Relato
+            with st.expander(" Relato com Fundamentação Teórica", expanded=True):
                 texto_relato = rel.get('RELATO FUNDAMENTADO', '')
                 if not texto_relato:
                     texto_relato = "Não informado."
                 st.write(texto_relato)
-
+            # Bloco 4: reflexões    
+            with st.expander(" Reflexões Críticas", expanded=True):
+                texto_relato = rel.get('REFLEXÕES CRÍTICAS', '')
+                if not texto_relato:
+                    texto_relato = "Não informado."
+                st.write(texto_relato)
             # Bloco 3: Reflexões (Caso exista essa coluna na sua planilha, se não existir, pode remover este bloco)
             coluna_reflexao = 'Reflexões Críticas' # Verifique se o nome na planilha é exatamente este
             if coluna_reflexao in rel:
