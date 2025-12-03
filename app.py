@@ -318,19 +318,45 @@ if not df.empty:
     df_detalhes = df_filtrado.sort_values(by='Data da atividade', ascending=False)
     
     if not df_detalhes.empty:
+        # Cria a lista de opções para o selectbox
         opcoes = [f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}" for _, row in df_detalhes.iterrows()]
-        escolha = st.selectbox("Selecione um relatório:", options=opcoes)
+        escolha = st.selectbox("Selecione um relatório para ler os detalhes:", options=opcoes)
 
         if escolha:
             idx = opcoes.index(escolha)
             id_real = df_detalhes.index[idx]
             rel = df.loc[id_real]
             
+            # Cabeçalho do Relatório
             st.subheader(f"Relatório de: {rel['Nome do monitor']}")
-            st.write(f"**Data:** {rel['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor:** {rel.get('Nome do preceptor', '')}")
-            st.write(f"**Atividade:** {rel.get('ATIVIDADE(S) REALIZADA(S)', '')}")
-            st.write(f"**Relato:** {rel.get('RELATO FUNDAMENTADO', '')}")
+            st.markdown(f"**Data:** {rel['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {rel.get('Nome do preceptor', '')}")
+            
+            # Espaçamento
+            st.write("") 
+
+            # --- AQUI ESTÁ A MUDANÇA PARA O FORMATO DA IMAGEM 2 ---
+            
+            # Bloco 1: Atividade
+            with st.expander("v Atividade(s) Realizada(s)", expanded=True):
+                texto_atividade = rel.get('ATIVIDADE(S) REALIZADA(S)', '')
+                if not texto_atividade:
+                    texto_atividade = "Não informado."
+                st.write(texto_atividade)
+
+            # Bloco 2: Relato
+            with st.expander("v Relato com Fundamentação Teórica", expanded=True):
+                texto_relato = rel.get('RELATO FUNDAMENTADO', '')
+                if not texto_relato:
+                    texto_relato = "Não informado."
+                st.write(texto_relato)
+
+            # Bloco 3: Reflexões (Caso exista essa coluna na sua planilha, se não existir, pode remover este bloco)
+            coluna_reflexao = 'Reflexões Críticas' # Verifique se o nome na planilha é exatamente este
+            if coluna_reflexao in rel:
+                with st.expander("v Reflexões Críticas", expanded=True):
+                     st.write(rel.get(coluna_reflexao, ''))
+
     else:
-        st.warning("Nenhum relatório encontrado.")
+        st.warning("Nenhum relatório encontrado para os filtros selecionados.")
 else:
     st.warning("Verifique a planilha e credenciais.")
