@@ -311,10 +311,10 @@ if not df.empty:
     elif monitor_selecionado:
         st.sidebar.info("Sem dados neste período.")
 
-    # Tabela e Detalhes (Mantido igual)
-    st.header(f"Relatórios Encontrados: {len(df_filtrado)}")
-    st.dataframe(df_filtrado)
-    st.markdown("---")
+    # # Tabela e Detalhes (Mantido igual)
+    # st.header(f"Relatórios Encontrados: {len(df_filtrado)}")
+    # st.dataframe(df_filtrado)
+    # st.markdown("---")
 
     st.header("Visualizar Relatório Detalhado")
     df_detalhes = df_filtrado.sort_values(by='Data da atividade', ascending=False)
