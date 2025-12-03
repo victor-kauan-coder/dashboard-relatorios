@@ -36,9 +36,11 @@ st.markdown(
 
 URL_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE7t3kJy3Wxaw5APSVomBVOA/edit?usp=sharing"
 
-# ==========================================
-# FUNÇÕES DE DADOS
-# ==========================================
+try:
+    st.sidebar.image("banner-pet.png", use_container_width=True)
+except:
+    st.sidebar.warning("Imagem banner-pet.png não encontrada.")
+    
 @st.cache_data(ttl=60)
 def carregar_dados():
     try:
