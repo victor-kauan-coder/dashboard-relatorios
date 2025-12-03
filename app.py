@@ -317,6 +317,7 @@ if not df.empty:
     # st.markdown("---")
 
     st.header("Visualizar Relatório Detalhado")
+    st.header(f"Relatórios Encontrados: {len(df_filtrado)}")
     df_detalhes = df_filtrado.sort_values(by='Data da atividade', ascending=False)
     
     if not df_detalhes.empty:
