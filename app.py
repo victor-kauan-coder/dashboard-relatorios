@@ -202,7 +202,7 @@ def _desenhar_pagina_monitor(pdf, df_monitor, nome_monitor, mes, ano, preceptora
         pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR (Consolidado): _________________________________________ DATA: {dia} / {mes_hj} / {ano_hj}"), align='L')
 
 
-def gerar_pdf_monitores(df_geral, lista_nomes, mes, ano, col_nome_monitor='Nome do monitor'):
+def gerar_pdf_monitores(df_geral, lista_nomes, mes, ano, col_nome_monitor='Nome'):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     
@@ -248,7 +248,7 @@ df = carregar_dados()
 
 if not df.empty:
     st.sidebar.header("Filtros:")
-    monitores = sorted(df['Nome do monitor'].unique())
+    monitores = sorted(df['Nome'].unique())
     monitor_selecionado = st.sidebar.multiselect("Selecione o(s) Monitor(es):", options=monitores, default=[])
     
     preceptores = sorted(df['Nome do preceptor'].unique())
@@ -268,7 +268,7 @@ if not df.empty:
     # Filtros
     df_filtrado = df.copy()
     if monitor_selecionado:
-        df_filtrado = df_filtrado[df_filtrado['Nome do monitor'].isin(monitor_selecionado)]
+        df_filtrado = df_filtrado[df_filtrado['Nome'].isin(monitor_selecionado)]
     if preceptor_selecionado:
         df_filtrado = df_filtrado[df_filtrado['Nome do preceptor'].isin(preceptor_selecionado)]
     if data_inicio and data_fim:
@@ -322,7 +322,7 @@ if not df.empty:
     
     if not df_detalhes.empty:
         # Cria a lista de opções para o selectbox
-        opcoes = [f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome do monitor']}" for _, row in df_detalhes.iterrows()]
+        opcoes = [f"{row['Data da atividade'].strftime('%d/%m/%Y')} - {row['Nome']}" for _, row in df_detalhes.iterrows()]
         escolha = st.selectbox("Selecione um relatório para ler os detalhes:", options=opcoes)
 
         if escolha:
@@ -331,7 +331,7 @@ if not df.empty:
             rel = df.loc[id_real]
             
             # Cabeçalho do Relatório
-            st.subheader(f"Relatório de: {rel['Nome do monitor']}")
+            st.subheader(f"Relatório de: {rel['Nome']}")
             st.markdown(f"**Data:** {rel['Data da atividade'].strftime('%d/%m/%Y')} | **Preceptor(a):** {rel.get('Nome do preceptor', '')}")
             
             # Espaçamento
