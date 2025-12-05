@@ -99,7 +99,7 @@ def limpar_texto(texto):
     except Exception:
         return texto_str
 
-def _desenhar_pagina_monitor(pdf, df_monitor, nome_monitor, mes, ano, preceptora, adicionar_visto_preceptor=False):
+def _desenhar_pagina(pdf, df_monitor, nome_monitor, mes, ano, preceptora, adicionar_visto_preceptor=False):
     """
     Desenha a página de um monitor.
     :param adicionar_visto_preceptor: Se True, adiciona a assinatura do preceptor no final.
@@ -125,11 +125,15 @@ def _desenhar_pagina_monitor(pdf, df_monitor, nome_monitor, mes, ano, preceptora
     pdf.set_font(fonte_padrao, size=10)
     mes_idx = int(mes) - 1 if 1 <= int(mes) <= 12 else 0
     
+    função = df_monitor.loc[0, 'Função'].upper()
+
+    if função == 'NAN': função = 'MONITOR'
+
     pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_idx].upper()} / {ano}"), ln=True) 
     pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True)
     pdf.cell(0, 5, limpar_texto("Local de Atuação: CAPS AD - Teresina / PI"), ln=True)
     pdf.cell(0, 5, limpar_texto(f"Preceptora: {preceptora}"), ln=True)
-    pdf.cell(0, 5, limpar_texto(f"Monitor: {nome_monitor}"), ln=True)
+    pdf.cell(0, 5, limpar_texto(f"{função}: {nome_monitor}"), ln=True)
     pdf.ln(5)
 
     # --- TABELA ---
@@ -148,7 +152,7 @@ def _desenhar_pagina_monitor(pdf, df_monitor, nome_monitor, mes, ano, preceptora
         df_monitor = df_monitor.sort_values(by='Data da atividade')
     
     altura_linha_base = 5
-    
+
     for _, row in df_monitor.iterrows():
         data = limpar_texto(row['Data da atividade'].strftime('%d/%m/%Y')) if not pd.isna(row['Data da atividade']) else ""
         
@@ -191,7 +195,9 @@ def _desenhar_pagina_monitor(pdf, df_monitor, nome_monitor, mes, ano, preceptora
     pdf.ln(15)
     
     # Assinatura do MONITOR (Sempre aparece na folha dele)
-    pdf.cell(0, 5, limpar_texto("ASSINATURA DO MONITOR: _________________________________________ "), align='L')
+   
+
+    pdf.cell(0, 5, limpar_texto(f"ASSINATURA DO {função}: _________________________________________ "), align='L')
     pdf.ln(15)
     
     # Assinatura do PRECEPTOR (Só aparece se for a última página do arquivo ou solicitado)
@@ -220,7 +226,7 @@ def gerar_pdf_monitores(df_geral, lista_nomes, mes, ano, col_nome_monitor='Nome'
         if not df_indiv.empty:
             precep = df_indiv['Nome do preceptor'].iloc[0] if 'Nome do preceptor' in df_indiv.columns else "______________"
             
-            _desenhar_pagina_monitor(
+            _desenhar_pagina(
                 pdf, 
                 df_indiv, 
                 nome, 
@@ -340,25 +346,25 @@ if not df.empty:
             # --- AQUI ESTÁ A MUDANÇA PARA O FORMATO DA IMAGEM 2 ---
             
             # Bloco 1: Atividade
-            with st.expander(" Atividade(s) Realizada(s)", expanded=True):
+            with st.expander(" Atividade(s) Realizada(s)", expanded=False):
                 texto_atividade = rel.get('ATIVIDADE(S) REALIZADA(S)', '')
                 if not texto_atividade:
                     texto_atividade = "Não informado."
                 st.write(texto_atividade)
             # Bloco 2: Objetivo
-            with st.expander("Objetivo Da(s) Atividade(s)", expanded=True):
+            with st.expander("Objetivo Da(s) Atividade(s)", expanded=False):
                 texto_atividade = rel.get('OBJETIVO DA(S) ATIVIDADE(S)', '')
                 if not texto_atividade:
                     texto_atividade = "Não informado."
                 st.write(texto_atividade)
             # Bloco 3: Relato
-            with st.expander(" Relato com Fundamentação Teórica", expanded=True):
+            with st.expander(" Relato com Fundamentação Teórica", expanded=False):
                 texto_relato = rel.get('RELATO FUNDAMENTADO', '')
                 if not texto_relato:
                     texto_relato = "Não informado."
                 st.write(texto_relato)
             # Bloco 4: reflexões    
-            with st.expander(" Reflexões Críticas", expanded=True):
+            with st.expander(" Reflexões Críticas", expanded=False):
                 texto_relato = rel.get('REFLEXÕES CRÍTICAS', '')
                 if not texto_relato:
                     texto_relato = "Não informado."
@@ -366,7 +372,7 @@ if not df.empty:
             # Bloco 3: Reflexões (Caso exista essa coluna na sua planilha, se não existir, pode remover este bloco)
             coluna_reflexao = 'Reflexões Críticas' # Verifique se o nome na planilha é exatamente este
             if coluna_reflexao in rel:
-                with st.expander("v Reflexões Críticas", expanded=True):
+                with st.expander("v Reflexões Críticas", expanded=False):
                      st.write(rel.get(coluna_reflexao, ''))
 
     else:
