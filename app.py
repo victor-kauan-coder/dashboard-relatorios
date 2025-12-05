@@ -213,7 +213,12 @@ def _desenhar_pagina(pdf, df_monitor, nome_monitor, mes, ano, preceptora, adicio
     
     # Assinatura do PRECEPTOR (Só aparece se for a última página do arquivo ou solicitado)
     if adicionar_visto_preceptor:
-        dia, mes_hj, ano_hj = date.today().day, date.today().month, date.today().year
+        hoje = date.today()
+
+        # %d = dia com 2 dígitos
+        # %m = mês com 2 dígitos
+        # %Y = ano com 4 dígitos
+        dia, mes_hj, ano_hj = hoje.strftime("%d"), hoje.strftime("%m"), hoje.strftime("%Y")
         # Adiciona um espaço extra para separar bem
         pdf.ln(10) 
         pdf.cell(0, 5, limpar_texto(f"VISTO DO PRECEPTOR (Consolidado): _________________________________________ DATA: {dia} / {mes_hj} / {ano_hj}"), align='L')
