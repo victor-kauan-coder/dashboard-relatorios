@@ -118,16 +118,16 @@ def _desenhar_pagina(pdf, df_monitor, nome_monitor, mes, ano, preceptora, adicio
     pdf.cell(0, 5, limpar_texto("UNIVERSIDADE FEDERAL DO PIAUÍ - UFPI"), ln=True, align='C') 
     pdf.cell(0, 5, limpar_texto("PROJETO PET SAÚDE/I&SD - INFORMAÇÃO E SAÚDE DIGITAL"), ln=True, align='C') 
     pdf.ln(5)
-    pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUÊNCIA - MONITORES"), ln=True, align='C') 
+    pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUÊNCIA"), ln=True, align='C') 
     pdf.ln(5)
 
     # --- METADADOS ---
     pdf.set_font(fonte_padrao, size=10)
     mes_idx = int(mes) - 1 if 1 <= int(mes) <= 12 else 0
     
-    função = df_monitor.loc[0, 'Função'].upper()
+    função = df_monitor.iloc[0]['Função'].upper()
 
-    if função == 'NAN': função = 'MONITOR'
+    if função == 'NAN': função = 'MONITOR(A)'
 
     pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_idx].upper()} / {ano}"), ln=True) 
     pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True)
