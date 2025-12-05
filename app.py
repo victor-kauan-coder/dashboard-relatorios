@@ -127,7 +127,18 @@ def _desenhar_pagina(pdf, df_monitor, nome_monitor, mes, ano, preceptora, adicio
     
     função = df_monitor.iloc[0]['Função'].upper()
 
-    if função == 'NAN': função = 'MONITOR(A)'
+    raw_funcao = df_monitor.iloc[0]['Função']
+
+    # 2. Verifica se é Nulo (NaN), Vazio ou None
+    if pd.isna(raw_funcao) or str(raw_funcao).strip() == "":
+        função = 'MONITOR(A)'
+    else:
+        # 3. Se não for nulo, converte para string e joga para maiúsculo
+        função = str(raw_funcao).upper()
+
+    # Verifica se por acaso estava escrito "NAN" como texto na planilha
+    if função == 'NAN': 
+        função = 'MONITOR(A)'
 
     pdf.cell(0, 5, limpar_texto(f"MÊS DE REFERÊNCIA: {meses_ptbr[mes_idx].upper()} / {ano}"), ln=True) 
     pdf.cell(0, 5, limpar_texto("Grupo Tutorial: Grupo 1 - Letramento para Usuários dos Serviços Digitais do SUS"), ln=True)
