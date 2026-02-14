@@ -306,8 +306,8 @@ if not df.empty:
         
         d_ini_str = df_filtrado['Data da atividade'].min().strftime('%d-%m')
         d_fim_str = df_filtrado['Data da atividade'].max().strftime('%d-%m')
-        mes_ref = df_filtrado['Data da atividade'].iloc[0].month
-        ano_ref = df_filtrado['Data da atividade'].iloc[0].year
+        mes_ref = df_filtrado['Data da atividade'].iloc[-1].month
+        ano_ref = df_filtrado['Data da atividade'].iloc[-1].year
 
         try:
             # Gera o PDF diretamente
