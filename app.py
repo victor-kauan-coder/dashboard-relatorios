@@ -346,10 +346,19 @@ def atualizar_atividade(carimbo, nome, nova_linha):
 # ==========================================
 inject_css()
 
-try:
-    with open('config.yaml', 'r', encoding='utf-8') as f: config = yaml.load(f, Loader=SafeLoader)
-except:
-    st.error("Arquivo config.yaml ausente. Por favor, crie-o na raiz do projeto."); st.stop()
+# Tenta ler o arquivo local. Se não existir, lê dos Secrets do Streamlit Cloud
+if "credentials" in st.secrets:
+    config = {
+        "credentials": dict(st.secrets["credentials"]),
+        "cookie": dict(st.secrets["cookie"])
+    }
+else:
+    try:
+        with open('config.yaml', 'r', encoding='utf-8') as f:
+            config = yaml.load(f, Loader=SafeLoader)
+    except FileNotFoundError:
+        st.error("Configurações não encontradas. Verifique o arquivo config.yaml ou os Secrets.")
+        st.stop()
 
 auth = stauth.Authenticate(config['credentials'], config['cookie']['name'], config['cookie']['key'], config['cookie']['expiry_days'])
 
