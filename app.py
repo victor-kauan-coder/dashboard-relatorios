@@ -88,7 +88,7 @@ def inject_css():
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 .user-avatar {
     width: 38px;
@@ -127,13 +127,24 @@ def inject_css():
     border-radius: var(--radius-md) !important;
 }
 
+/* Custom List Rows */
+.list-row {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    transition: var(--transition);
+}
+.list-row:hover { border-color: var(--accent); }
+
 hr { border-color: var(--border) !important; margin: 1.5rem 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ==========================================
-# COMPONENTES VISUAIS
+# COMPONENTES VISUAIS E PDF
 # ==========================================
 def sidebar_divider():
     st.sidebar.markdown("<div style='height:1px;background:var(--border);margin:0.8rem 0;'></div>", unsafe_allow_html=True)
@@ -175,10 +186,6 @@ def report_card(row):
     <p style="margin:0;font-size:0.73rem;opacity:0.8;line-height:1.55;font-weight:300;">{ativ}</p>
 </div>""", unsafe_allow_html=True)
 
-
-# ==========================================
-# GRÁFICOS (PLOTLY)
-# ==========================================
 def base_layout(h=220):
     return dict(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=8, r=8, t=24, b=8), height=h)
 
@@ -201,10 +208,6 @@ def chart_donut(df):
     fig.update_layout(**base_layout(h=230), legend=dict(orientation='h', y=-0.2, x=0.5, xanchor='center'))
     return fig
 
-
-# ==========================================
-# GESTÃO DE PDF (ESTRITO PRETO E BRANCO)
-# ==========================================
 def limpar_texto(texto):
     if pd.isna(texto) or texto == "": return ""
     s = str(texto)
@@ -216,46 +219,37 @@ def limpar_texto(texto):
 def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
     meses = ["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
     pdf.set_draw_color(0, 0, 0); pdf.set_text_color(0, 0, 0)
-    
     y_l = 12; h_l = 14; px = [18, 58, 88, 132, 175]
     imgs = ["ufpi.png", "sus.png", "pet.png", "fms.png", "caps.png"]
     for x, img in zip(px, imgs):
         if os.path.exists(img):
             try: pdf.image(img, x=x, y=y_l, h=h_l)
             except: pass
-                
     pdf.set_y(30); pdf.set_line_width(0.4)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-    pdf.ln(4)
-
-    pdf.set_font("Helvetica", 'B', 10)
+    pdf.ln(4); pdf.set_font("Helvetica", 'B', 10)
     pdf.cell(0, 6, limpar_texto("UNIVERSIDADE FEDERAL DO PIAUI - UFPI"), ln=True, align='C')
     pdf.set_font("Helvetica", '', 8)
     pdf.cell(0, 5, limpar_texto("PROJETO PET SAUDE / I&SD - INFORMACAO E SAUDE DIGITAL"), ln=True, align='C')
     pdf.ln(2); pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(3); pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUENCIA"), ln=True, align='C')
-    
     pdf.ln(3); mes_idx = int(mes) - 1 if 1 <= int(mes) <= 12 else 0
     fnc = str(df_m.iloc[0]['Função']).upper() if not pd.isna(df_m.iloc[0]['Função']) else "MONITOR(A)"
     if fnc == 'NAN' or fnc == '': fnc = "MONITOR(A)"
-    
     for lbl, val in [("MES DE REFERENCIA", f"{meses[mes_idx].upper()} / {ano}"), ("GRUPO TUTORIAL", "Grupo 1 - Letramento p/ Usuarios SUS"), ("LOCAL", "CAPS AD - Teresina / PI"), ("PRECEPTORA", prec), (fnc, nome)]:
         pdf.set_font("Helvetica", 'B', 8); pdf.cell(44, 5, limpar_texto(f"  {lbl}:"), border=0)
         pdf.set_font("Helvetica", '', 8);  pdf.cell(0, 5, limpar_texto(val), border=0, ln=True)
-
     pdf.ln(4); ws = [28, 28, 28, 86]
     pdf.set_fill_color(220, 220, 220); pdf.set_font("Helvetica", 'B', 8)
     for h, w in zip(["Data", "Entrada", "Saida", "Atividades Desenvolvidas"], ws): pdf.cell(w, 8, limpar_texto(h), border=1, align='C', fill=True)
     pdf.ln(); pdf.set_font("Helvetica", '', 8)
-    
     flip = False
     for _, row in df_m.sort_values('Data da atividade').iterrows():
         d = row['Data da atividade'].strftime('%d/%m/%Y'); ent = str(row.get('Horário de Início', '')).strip()
         try: sai = (datetime.strptime(ent, "%H:%M") + timedelta(hours=4)).strftime("%H:%M")
         except: sai = ""
         ativ = limpar_texto(str(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper())
-
         pdf.set_fill_color(245, 245, 245) if flip else pdf.set_fill_color(255, 255, 255)
         flip = not flip
         y0 = pdf.get_y()
@@ -267,7 +261,6 @@ def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
         pdf.rect(pdf.l_margin, y0, ws[0], h_r); pdf.rect(pdf.l_margin+ws[0], y0, ws[1], h_r); pdf.rect(pdf.l_margin+ws[0]+ws[1], y0, ws[2], h_r)
         pdf.set_y(y1)
         if pdf.get_y() > 255: pdf.add_page()
-
     pdf.ln(8); pdf.set_font("Helvetica", '', 9)
     pdf.cell(0, 5, limpar_texto(f"Assinatura do {fnc}: _________________________________________________"), ln=True)
     if visto:
@@ -281,7 +274,6 @@ def gerar_pdf(df_geral, nomes, mes, ano):
         _pagina_pdf(pdf, df_i, nome, mes, ano, prec, visto=(i == len(nomes)-1))
     return bytes(pdf.output(dest='S'))
 
-
 # ==========================================
 # GESTÃO DE DADOS (GOOGLE SHEETS)
 # ==========================================
@@ -291,29 +283,36 @@ URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PwDHHAD4ITWZoHuPpFVBE7t3
 def carregar_dados():
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]
-        creds = Credentials.from_service_account_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "credentials.json"), scopes=scopes)
+        if "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        else:
+            creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        
         client = gspread.authorize(creds)
         vals = client.open_by_url(URL_PLANILHA).sheet1.get_all_values()
-        
         if len(vals) <= 1: return pd.DataFrame()
-        
         dados = pd.DataFrame(vals[1:], columns=vals[0])
         dados.columns = dados.columns.str.strip()
-        
         if 'Data da atividade' in dados.columns:
             dados['Data da atividade'] = pd.to_datetime(dados['Data da atividade'], errors='coerce', dayfirst=True)
         if 'Horário de Início' in dados.columns:
             limpos = dados['Horário de Início'].astype(str).str.extract(r'(\d{1,2}:\d{2})')[0]
             dados['Horário de Início'] = pd.to_datetime(limpos, format='%H:%M', errors='coerce').dt.strftime('%H:%M')
-            
         return dados.dropna(subset=['Data da atividade'])
     except Exception as e:
-        st.error(f"Erro ao carregar banco de dados: {e}"); return pd.DataFrame()
+        st.error(f"Erro ao carregar banco: {e}"); return pd.DataFrame()
 
 def salvar_nova_atividade(lista):
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]
-        creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        if "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        else:
+            creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
         gspread.authorize(creds).open_by_url(URL_PLANILHA).sheet1.append_row(lista)
         return True
     except: return False
@@ -321,46 +320,53 @@ def salvar_nova_atividade(lista):
 def atualizar_atividade(carimbo, nome, nova_linha):
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]
-        creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        if "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        else:
+            creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
         client = gspread.authorize(creds)
         planilha = client.open_by_url(URL_PLANILHA).sheet1
-
         registros = planilha.get_all_values()
         row_idx = -1
         for i, r in enumerate(registros):
             if r[0] == carimbo and r[1] == nome:
                 row_idx = i + 1
                 break
-
         if row_idx != -1:
             planilha.update(range_name=f"A{row_idx}:O{row_idx}", values=[nova_linha])
             return True
         return False
-    except Exception as e:
-        st.error(f"Erro na comunicação com o banco: {e}")
-        return False
+    except: return False
 
 
 # ==========================================
-# CONTROLE DE ACESSO (AUTHENTICATION)
+# 🔐 AUTENTICAÇÃO
 # ==========================================
 inject_css()
 
-# Tenta ler o arquivo local. Se não existir, lê dos Secrets do Streamlit Cloud
+# CORREÇÃO PARA LER DO STREAMLIT CLOUD (SECRETS) SEM DAR ERRO
 if "credentials" in st.secrets:
     config = {
-        "credentials": dict(st.secrets["credentials"]),
+        "credentials": {
+            "usernames": {k: dict(v) for k, v in st.secrets["credentials"]["usernames"].items()}
+        },
         "cookie": dict(st.secrets["cookie"])
     }
 else:
     try:
         with open('config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.load(f, Loader=SafeLoader)
-    except FileNotFoundError:
-        st.error("Configurações não encontradas. Verifique o arquivo config.yaml ou os Secrets.")
-        st.stop()
+    except:
+        st.error("Configurações ausentes. Verifique o arquivo config.yaml ou os Secrets na nuvem."); st.stop()
 
-auth = stauth.Authenticate(config['credentials'], config['cookie']['name'], config['cookie']['key'], config['cookie']['expiry_days'])
+auth = stauth.Authenticate(
+    config['credentials'], 
+    config['cookie']['name'], 
+    config['cookie']['key'], 
+    config['cookie']['expiry_days']
+)
 
 if st.session_state["authentication_status"] is None or st.session_state["authentication_status"] is False:
     st.markdown("<div style='margin-top: 5rem;'></div>", unsafe_allow_html=True)
@@ -370,25 +376,20 @@ if st.session_state["authentication_status"] is None or st.session_state["authen
         try: st.image("pet-logo.png", width=180)
         except: st.markdown("<h2 style='color:var(--accent);'>Acesso Restrito</h2>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
-        
         auth.login()
         if st.session_state["authentication_status"] is False: st.error('Credenciais inválidas.')
 
 
 # ==========================================
-# ÁREA LOGADA (SISTEMA DE ROTAS)
+# ÁREA LOGADA
 # ==========================================
 if st.session_state["authentication_status"]:
     user_key = st.session_state["username"]
     user_data = config['credentials']['usernames'][user_key]
     role = user_data.get('role', 'monitor')
     
-    # 1. LOGO NO TOPO DA SIDEBAR
-    try:
-        st.sidebar.image("banner-pet.png", use_container_width=True)
-    except:
-        st.sidebar.markdown("<h3 style='text-align:center; color:var(--accent); margin-top:0;'>PET SAÚDE</h3>", unsafe_allow_html=True)
-        
+    try: st.sidebar.image("banner-pet.png", use_container_width=True)
+    except: st.sidebar.markdown("<h3 style='text-align:center; color:var(--accent); margin-top:0;'>PET SAÚDE</h3>", unsafe_allow_html=True)
     sidebar_divider()
 
     # ---------------------------------------------------------
@@ -405,7 +406,6 @@ if st.session_state["authentication_status"]:
             # FILTRO 2: Preceptores
             lista_preceptores = []
             if 'Nome do preceptor' in df.columns:
-                # Extrai apenas preceptores válidos (ignora vazios, nulos ou 'Escolher')
                 lista_preceptores = sorted([p for p in df['Nome do preceptor'].unique() if pd.notna(p) and str(p).strip() != "" and str(p).lower() != "nan" and str(p).lower() != "escolher"])
             
             p_sel = st.sidebar.multiselect("Filtrar Preceptores", options=lista_preceptores)
@@ -415,12 +415,8 @@ if st.session_state["authentication_status"]:
             d1, d2 = sel_d if (isinstance(sel_d, tuple) and len(sel_d)==2) else (hoje, hoje)
 
             df_f = df.copy()
-            
-            # Aplicação dos Filtros
-            if m_sel: 
-                df_f = df_f[df_f['Nome'].isin(m_sel)]
-            if p_sel:
-                df_f = df_f[df_f['Nome do preceptor'].isin(p_sel)]
+            if m_sel: df_f = df_f[df_f['Nome'].isin(m_sel)]
+            if p_sel: df_f = df_f[df_f['Nome do preceptor'].isin(p_sel)]
                 
             df_f = df_f[(df_f['Data da atividade'].dt.date >= d1) & (df_f['Data da atividade'].dt.date <= d2)]
 
@@ -430,22 +426,21 @@ if st.session_state["authentication_status"]:
                 pdf_b = gerar_pdf(df_f, m_sel, df_f['Data da atividade'].iloc[-1].month, df_f['Data da atividade'].iloc[-1].year)
                 st.sidebar.download_button(f"Baixar Frequências ({len(m_sel)})", pdf_b, f"Frequencias_PET.pdf", "application/pdf")
 
-            page_header("Painel de Gestão", "Monitoramento centralizado de atividades e frequências do grupo tutorial.")
-            
+            page_header("Painel de Gestão", "Monitoramento centralizado de atividades e frequências.")
             section_label("Métricas do Período")
             k1, k2, k3, k4 = st.columns(4)
             with k1: st.markdown(metric_card("Total Registros", len(df_f), "atividades enviadas", "orange"), unsafe_allow_html=True)
-            with k2: st.markdown(metric_card("Monitores Ativos", df_f['Nome'].nunique(), "participantes únicos", "blue"), unsafe_allow_html=True)
-            with k3: st.markdown(metric_card("Horas Totais", f"{len(df_f)*4}h", "base: 4h por registro"), unsafe_allow_html=True)
-            with k4: st.markdown(metric_card("Preceptores", df_f['Nome do preceptor'].nunique(), "responsáveis validados"), unsafe_allow_html=True)
+            with k2: st.markdown(metric_card("Monitores Ativos", df_f['Nome'].nunique(), "participantes", "blue"), unsafe_allow_html=True)
+            with k3: st.markdown(metric_card("Horas Totais", f"{len(df_f)*4}h", "4h por registro"), unsafe_allow_html=True)
+            with k4: st.markdown(metric_card("Preceptores", df_f['Nome do preceptor'].nunique(), "responsáveis"), unsafe_allow_html=True)
 
             section_label("Análise de Frequência")
             g1, g2 = st.columns([3, 2])
-            with g1: st.plotly_chart(chart_barras(df_f), use_container_width=True, config={'displayModeBar': False})
+            with g1: st.plotly_chart(chart_barras(df_f), use_container_width=True)
             with g2: 
                 fig_dn = chart_donut(df_f)
-                if fig_dn: st.plotly_chart(fig_dn, use_container_width=True, config={'displayModeBar': False})
-            st.plotly_chart(chart_linha(df_f), use_container_width=True, config={'displayModeBar': False})
+                if fig_dn: st.plotly_chart(fig_dn, use_container_width=True)
+            st.plotly_chart(chart_linha(df_f), use_container_width=True)
 
             section_label("Consulta Detalhada de Relatórios")
             df_v = df_f.sort_values('Data da atividade', ascending=False)
@@ -453,7 +448,7 @@ if st.session_state["authentication_status"]:
                 ce, cd = st.columns([2, 3])
                 with ce:
                     opcs = [f"{r['Data da atividade'].strftime('%d/%m/%Y')} - {r['Nome']}" for _, r in df_v.iterrows()]
-                    esc = st.selectbox("Selecionar Registro Específico:", options=opcs, label_visibility="collapsed")
+                    esc = st.selectbox("Selecionar Registro:", options=opcs, label_visibility="collapsed")
                     st.markdown("<p style='font-size:0.6rem;font-weight:700;letter-spacing:0.1em;opacity:0.5;margin-top:1rem;'>ÚLTIMOS ENVIOS</p>", unsafe_allow_html=True)
                     for _, r in df_v.head(5).iterrows(): report_card(r)
                 with cd:
@@ -478,22 +473,22 @@ if st.session_state["authentication_status"]:
             
             with st.form("form_mon", clear_on_submit=True):
                 c_d, c_h = st.columns(2)
-                with c_d: d_a = st.date_input("Data do Registro *", value=date.today())
+                with c_d: d_a = st.date_input("Data da Atividade *", value=date.today())
                 with c_h: h_i = st.time_input("Horário de Início *")
                 
-                loc = st.text_input("Localização *")
+                loc = st.text_input("Local Específico: *")
                 st.markdown("---")
-                prec = st.selectbox("Preceptor(a) Validador(a) *", ["Escolher", "Mariângela - Preceptora turno MANHÃ", "Sammia - Preceptora turno TARDE"])
+                prec = st.selectbox("Nome do preceptor *", ["Escolher", "Mariângela - Preceptora turno MANHÃ", "Sammia - Preceptora turno TARDE"])
                 
                 c_t, c_o = st.columns(2)
-                with c_t: tuts = st.multiselect("Tutores", ["Joana Machado", "Léia Lima"])
-                with c_o: orie = st.multiselect("Orientação de Serviço", ["Beatriz Costa"])
+                with c_t: tuts = st.multiselect("tutores presentes", ["Joana Machado", "Léia Lima"])
+                with c_o: orie = st.multiselect("Orientadora de serviço", ["Beatriz Costa"])
                 
                 st.markdown("---")
-                ativ = st.text_area("Descrição das Atividades *", height=100)
-                obje = st.text_area("Objetivos Executados *", height=100)
-                relat = st.text_area("Relato Fundamentado *", height=150)
-                refl = st.text_area("Reflexões Críticas *", height=100)
+                ativ = st.text_area("ATIVIDADE(S) REALIZADA(S) *", height=100)
+                obje = st.text_area("OBJETIVO DA(S) ATIVIDADE(S) *", height=100)
+                relat = st.text_area("RELATO FUNDAMENTADO *", height=150)
+                refl = st.text_area("REFLEXÕES CRÍTICAS *", height=100)
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.form_submit_button("Submeter Atividade", use_container_width=True):
@@ -546,22 +541,22 @@ if st.session_state["authentication_status"]:
                         
                         with st.form("form_editar_mon"):
                             e_cd, e_ch = st.columns(2)
-                            with e_cd: edit_d = st.date_input("Data do Registro *", value=row['Data da atividade'].date())
+                            with e_cd: edit_d = st.date_input("Data da Atividade *", value=row['Data da atividade'].date())
                             with e_ch: 
                                 try: time_val = datetime.strptime(str(row['Horário de Início']), '%H:%M').time()
                                 except: time_val = datetime.now().time()
                                 edit_h = st.time_input("Horário de Início *", value=time_val)
                                 
-                            edit_loc = st.text_input("Localização *", value=row.get('Local Específico:', ''))
+                            edit_loc = st.text_input("Local Específico: *", value=row.get('Local Específico:', ''))
                             
                             opcoes_prec = ["Escolher", "Mariângela - Preceptora turno MANHÃ", "Sammia - Preceptora turno TARDE"]
                             idx_prec = opcoes_prec.index(row.get('Nome do preceptor', 'Escolher')) if row.get('Nome do preceptor') in opcoes_prec else 0
-                            edit_prec = st.selectbox("Preceptor(a) *", opcoes_prec, index=idx_prec)
+                            edit_prec = st.selectbox("Nome do preceptor *", opcoes_prec, index=idx_prec)
                             
-                            edit_ativ = st.text_area("Descrição das Atividades *", value=row.get('ATIVIDADE(S) REALIZADA(S)', ''), height=100)
-                            edit_obje = st.text_area("Objetivos *", value=row.get('OBJETIVO DA(S) ATIVIDADE(S)', ''), height=100)
-                            edit_relat = st.text_area("Relato Fundamentado *", value=row.get('RELATO FUNDAMENTADO', ''), height=150)
-                            edit_refl = st.text_area("Reflexões Críticas *", value=row.get('REFLEXÕES CRÍTICAS', ''), height=100)
+                            edit_ativ = st.text_area("ATIVIDADE(S) REALIZADA(S) *", value=row.get('ATIVIDADE(S) REALIZADA(S)', ''), height=100)
+                            edit_obje = st.text_area("OBJETIVO DA(S) ATIVIDADE(S) *", value=row.get('OBJETIVO DA(S) ATIVIDADE(S)', ''), height=100)
+                            edit_relat = st.text_area("RELATO FUNDAMENTADO *", value=row.get('RELATO FUNDAMENTADO', ''), height=150)
+                            edit_refl = st.text_area("REFLEXÕES CRÍTICAS *", value=row.get('REFLEXÕES CRÍTICAS', ''), height=100)
                             
                             if st.form_submit_button("Salvar Modificações", use_container_width=True):
                                 if edit_prec == "Escolher" or not edit_loc or not edit_ativ:
@@ -598,16 +593,7 @@ if st.session_state["authentication_status"]:
                                     st.session_state.registro_selecionado = row; st.session_state.acao_monitor = 'editar'; st.rerun()
                             st.markdown("<div style='border-bottom:1px solid var(--border); margin: 0.5rem 0;'></div>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # RODAPÉ DA SIDEBAR (PERFIL E SAIR)
-    # ---------------------------------------------------------
+    # RODAPÉ SIDEBAR
     st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-    st.sidebar.markdown(f"""
-    <div class="user-profile-card">
-        <div class="user-avatar">{st.session_state['name'][0].upper()}</div>
-        <div class="user-info">
-            <span class="user-name">{st.session_state['name']}</span>
-            <span class="user-role">{role.upper()} | {user_data.get('funcao', 'Membro')}</span>
-        </div>
-    </div>""", unsafe_allow_html=True)
+    st.sidebar.markdown(f"""<div class="user-profile-card"><div class="user-avatar">{st.session_state['name'][0].upper()}</div><div class="user-info"><span class="user-name">{st.session_state['name']}</span><span class="user-role">{role.upper()}</span></div></div>""", unsafe_allow_html=True)
     auth.logout('Sair da Conta', 'sidebar')
