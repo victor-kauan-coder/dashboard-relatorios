@@ -208,6 +208,9 @@ def chart_donut(df):
     fig.update_layout(**base_layout(h=230), legend=dict(orientation='h', y=-0.2, x=0.5, xanchor='center'))
     return fig
 
+# ==========================================
+# GESTÃO DE PDF (ESTRITO PRETO E BRANCO)
+# ==========================================
 def limpar_texto(texto):
     if pd.isna(texto) or texto == "": return ""
     s = str(texto)
@@ -219,38 +222,52 @@ def limpar_texto(texto):
 def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
     meses = ["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
     pdf.set_draw_color(0, 0, 0); pdf.set_text_color(0, 0, 0)
+    
     y_l = 12; h_l = 14; px = [18, 58, 88, 132, 175]
     imgs = ["ufpi.png", "sus.png", "pet.png", "fms.png", "caps.png"]
     for x, img in zip(px, imgs):
         if os.path.exists(img):
             try: pdf.image(img, x=x, y=y_l, h=h_l)
             except: pass
+                
     pdf.set_y(30); pdf.set_line_width(0.4)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-    pdf.ln(4); pdf.set_font("Helvetica", 'B', 10)
+    pdf.ln(4)
+
+    pdf.set_font("Helvetica", 'B', 10)
     pdf.cell(0, 6, limpar_texto("UNIVERSIDADE FEDERAL DO PIAUI - UFPI"), ln=True, align='C')
     pdf.set_font("Helvetica", '', 8)
     pdf.cell(0, 5, limpar_texto("PROJETO PET SAUDE / I&SD - INFORMACAO E SAUDE DIGITAL"), ln=True, align='C')
     pdf.ln(2); pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(3); pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUENCIA"), ln=True, align='C')
+    
     pdf.ln(3); mes_idx = int(mes) - 1 if 1 <= int(mes) <= 12 else 0
     fnc = str(df_m.iloc[0]['Função']).upper() if not pd.isna(df_m.iloc[0]['Função']) else "MONITOR(A)"
     if fnc == 'NAN' or fnc == '': fnc = "MONITOR(A)"
+    
     for lbl, val in [("MES DE REFERENCIA", f"{meses[mes_idx].upper()} / {ano}"), ("GRUPO TUTORIAL", "Grupo 1 - Letramento p/ Usuarios SUS"), ("LOCAL", "CAPS AD - Teresina / PI"), ("PRECEPTORA", prec), (fnc, nome)]:
         pdf.set_font("Helvetica", 'B', 8); pdf.cell(44, 5, limpar_texto(f"  {lbl}:"), border=0)
         pdf.set_font("Helvetica", '', 8);  pdf.cell(0, 5, limpar_texto(val), border=0, ln=True)
+
     pdf.ln(4); ws = [28, 28, 28, 86]
     pdf.set_fill_color(220, 220, 220); pdf.set_font("Helvetica", 'B', 8)
     for h, w in zip(["Data", "Entrada", "Saida", "Atividades Desenvolvidas"], ws): pdf.cell(w, 8, limpar_texto(h), border=1, align='C', fill=True)
     pdf.ln(); pdf.set_font("Helvetica", '', 8)
+    
     flip = False
     for _, row in df_m.sort_values('Data da atividade').iterrows():
         d = row['Data da atividade'].strftime('%d/%m/%Y'); ent = str(row.get('Horário de Início', '')).strip()
         try: sai = (datetime.strptime(ent, "%H:%M") + timedelta(hours=4)).strftime("%H:%M")
         except: sai = ""
         ativ = limpar_texto(str(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper())
-        pdf.set_fill_color(245, 245, 245) if flip else pdf.set_fill_color(255, 255, 255)
+
+        # CORREÇÃO 1: Estrutura If/Else tradicional para evitar que o Streamlit imprima "None" na tela
+        if flip:
+            pdf.set_fill_color(245, 245, 245)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+            
         flip = not flip
         y0 = pdf.get_y()
         pdf.cell(ws[0], 5, d, border=0, align='C', fill=True)
@@ -261,6 +278,7 @@ def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
         pdf.rect(pdf.l_margin, y0, ws[0], h_r); pdf.rect(pdf.l_margin+ws[0], y0, ws[1], h_r); pdf.rect(pdf.l_margin+ws[0]+ws[1], y0, ws[2], h_r)
         pdf.set_y(y1)
         if pdf.get_y() > 255: pdf.add_page()
+
     pdf.ln(8); pdf.set_font("Helvetica", '', 9)
     pdf.cell(0, 5, limpar_texto(f"Assinatura do {fnc}: _________________________________________________"), ln=True)
     if visto:
@@ -272,7 +290,10 @@ def gerar_pdf(df_geral, nomes, mes, ano):
         pdf.add_page(); df_i = df_geral[df_geral['Nome'] == nome].copy()
         prec = df_i['Nome do preceptor'].iloc[0] if 'Nome do preceptor' in df_i.columns and not df_i.empty else "___"
         _pagina_pdf(pdf, df_i, nome, mes, ano, prec, visto=(i == len(nomes)-1))
-    return bytes(pdf.output(dest='S'))
+        
+    # CORREÇÃO 2: Conversão segura com Encoding para evitar o TypeError no Streamlit Cloud
+    saida = pdf.output(dest='S')
+    return saida.encode('latin-1') if isinstance(saida, str) else bytes(saida)
 
 # ==========================================
 # GESTÃO DE DADOS (GOOGLE SHEETS)
