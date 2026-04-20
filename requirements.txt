@@ -1,8 +1,8 @@
-# requirements.txt
 streamlit
 pandas
 gspread
 google-auth
-protobuf==3.20.3
-fpdf2
-datetime
+fpdf
+plotly
+pyyaml
+streamlit-authenticator
