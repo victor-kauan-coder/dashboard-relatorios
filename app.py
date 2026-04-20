@@ -223,11 +223,11 @@ def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
     meses = ["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
     pdf.set_draw_color(0, 0, 0); pdf.set_text_color(0, 0, 0)
     
-    y_l = 12; h_l = 14; px = [18, 58, 88, 132, 175]
-    imgs = ["ufpi.png", "sus.png", "pet.png", "fms.png", "caps.png"]
-    for x, img in zip(px, imgs):
+    y_l = [12,12,10,14,12]; h_l = [18,18,22,14,18]; px = [18, 45, 68, 134, 175]
+    imgs = ["ufpi.png", "sus.png", "banner-pet.png", "fms.png", "caps.png"]
+    for x, img, h, y in zip(px, imgs, h_l, y_l):
         if os.path.exists(img):
-            try: pdf.image(img, x=x, y=y_l, h=h_l)
+            try: pdf.image(img, x=x, y=y, h=h)
             except: pass
                 
     pdf.set_y(30); pdf.set_line_width(0.4)
