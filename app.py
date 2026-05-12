@@ -541,31 +541,6 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
         # (Ele agora ficará perfeitamente contido dentro da coluna estlizada)
         auth.login()
 
-        # Feedback de credencial inválida
-        if st.session_state.get("authentication_status") is False:
-            st.markdown("""
-            <div style="
-                margin-top: 0.8rem;
-                background: rgba(220,38,38,0.08);
-                border: 1px solid rgba(220,38,38,0.3);
-                border-left: 3px solid #DC2626;
-                border-radius: 8px;
-                padding: 0.75rem 1rem;
-                font-size: 0.82rem;
-                color: #DC2626;
-                font-weight: 500;
-                animation: fadeSlideUp 0.3s ease both;
-            ">
-                ⚠️ Credenciais inválidas. Verifique seu usuário e senha.
-            </div>
-            """, unsafe_allow_html=True)
-
-        # st.markdown("""
-        # <p style="text-align:center; font-size:0.65rem; opacity:0.35; margin-top:1.5rem; font-weight:500; letter-spacing:0.05em;">
-        #     UFPI · PET SAÚDE I&SD — Sistema Interno v2.0
-        # </p>
-        # """, unsafe_allow_html=True)
-
         # Feedback de credencial inválida — mais elegante
         if st.session_state.get("authentication_status") is False:
             st.markdown("""
@@ -597,15 +572,116 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
 # ==========================================
 if st.session_state.get("authentication_status"):
 
-    # Exibe spinner de "carregando" apenas no primeiro acesso após login
-    if not st.session_state.get("_app_loaded"):
-        with st.spinner("Carregando sistema..."):
-            time.sleep(0.6)   # breve pausa para suavizar a transição
+    # ── Detecta o exato momento do login e exibe splash screen ──
+    just_logged_in = not st.session_state.get("_app_loaded", False)
+
+    if just_logged_in:
+        # Registra que o app já foi carregado para sessões futuras
         st.session_state["_app_loaded"] = True
+        st.session_state["_show_splash"] = True
+        st.rerun()
+
+    if st.session_state.get("_show_splash"):
+        st.session_state["_show_splash"] = False
+
+        import base64
+        img_html = "<span style='font-size:3rem;'>🏥</span>"
+        if os.path.exists("pet-logo.png"):
+            with open("pet-logo.png", "rb") as img_file:
+                b64_img = base64.b64encode(img_file.read()).decode()
+            img_html = f'<img src="data:image/png;base64,{b64_img}" width="80" style="margin-bottom:0.5rem;">'
+
+        nome_usuario = st.session_state.get("name", "")
+
+        st.markdown(f"""
+        <style>
+            [data-testid="stSidebar"], [data-testid="collapsedControl"] {{ display: none !important; }}
+            .splash-overlay {{
+                position: fixed; inset: 0;
+                background: var(--bg-base);
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                z-index: 9999;
+                animation: splashFadeOut 0.55s 1.5s cubic-bezier(0.4,0,0.2,1) forwards;
+            }}
+            @keyframes splashFadeOut {{
+                from {{ opacity: 1; transform: scale(1); }}
+                to   {{ opacity: 0; transform: scale(1.04); pointer-events: none; }}
+            }}
+            .splash-logo {{
+                animation: splashPop 0.5s cubic-bezier(0.22,1,0.36,1) both;
+            }}
+            @keyframes splashPop {{
+                from {{ opacity: 0; transform: scale(0.7); }}
+                to   {{ opacity: 1; transform: scale(1); }}
+            }}
+            .splash-text {{
+                animation: splashPop 0.5s 0.15s cubic-bezier(0.22,1,0.36,1) both;
+                text-align: center;
+            }}
+            .splash-bar-track {{
+                width: 180px; height: 3px;
+                background: var(--border);
+                border-radius: 99px;
+                overflow: hidden;
+                margin-top: 1.8rem;
+                animation: splashPop 0.5s 0.25s cubic-bezier(0.22,1,0.36,1) both;
+            }}
+            .splash-bar-fill {{
+                height: 100%;
+                background: linear-gradient(90deg, var(--accent), var(--accent2));
+                border-radius: 99px;
+                animation: splashBarLoad 1.2s 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
+                width: 0%;
+            }}
+            @keyframes splashBarLoad {{
+                from {{ width: 0%; }}
+                to   {{ width: 100%; }}
+            }}
+        </style>
+        <div class="splash-overlay">
+            <div class="splash-logo">{img_html}</div>
+            <div class="splash-text">
+                <p style="font-family:'Sora',sans-serif; font-size:1.2rem; font-weight:700;
+                           color:var(--text-primary); margin:0 0 0.25rem; letter-spacing:-0.02em;">
+                    PET Saúde · I&SD
+                </p>
+                <p style="font-size:0.75rem; opacity:0.55; margin:0;">
+                    Bem-vindo, <strong>{nome_usuario}</strong>
+                </p>
+            </div>
+            <div class="splash-bar-track">
+                <div class="splash-bar-fill"></div>
+            </div>
+        </div>
+        <script>
+            // Força o rerun após a animação terminar (2.1s = 1.5s delay + 0.55s fade + buffer)
+            setTimeout(() => window.parent.document.querySelector('[data-testid="stApp"]')
+                .dispatchEvent(new Event('reload')), 2100);
+        </script>
+        """, unsafe_allow_html=True)
+        time.sleep(2.0)
+        st.rerun()
 
     user_key  = st.session_state["username"]
     user_data = config['credentials']['usernames'][user_key]
     role      = user_data.get('role', 'monitor')
+
+    # Anima a entrada do conteúdo principal (sidebar + página)
+    st.markdown("""
+    <style>
+        section[data-testid="stMain"] > div > div {
+            animation: fadeSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
+        }
+        [data-testid="stSidebar"] {
+            animation: fadeSlideIn 0.4s cubic-bezier(0.22,1,0.36,1) both;
+        }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateX(-18px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
     try: st.sidebar.image("banner-pet.png", use_container_width=True)
     except: st.sidebar.markdown("<h3 style='text-align:center; color:var(--accent); margin-top:0;'>PET SAÚDE</h3>", unsafe_allow_html=True)
