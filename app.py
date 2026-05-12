@@ -566,9 +566,6 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
         </p>
         """, unsafe_allow_html=True)
 
-        # Formulário de login nativo do stauth (ainda necessário para validação)
-        auth.login()
-
         # Feedback de credencial inválida — mais elegante
         if st.session_state.get("authentication_status") is False:
             st.markdown("""
