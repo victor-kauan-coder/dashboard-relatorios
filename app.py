@@ -12,6 +12,7 @@ import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 import re
+import time
 
 # --- CONFIGURAÇÃO DE IDIOMA ---
 try:
@@ -27,7 +28,7 @@ st.set_page_config(
     page_title="PET Saúde · Gestão Integrada",
     layout="wide",
     page_icon="pet-logo.png",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"   # sidebar recolhida até o login ser confirmado
 )
 
 # ==========================================
@@ -65,10 +66,100 @@ def inject_css():
 }
 .block-container { padding: 1.75rem 2.25rem 4rem !important; max-width: 1440px; }
 
-/* Sidebar */
+/* ── ANIMAÇÕES DE ENTRADA ── */
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0);     }
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes pulse-glow {
+    0%,100% { box-shadow: 0 0 0 0 rgba(232,118,42,0.35); }
+    50%      { box-shadow: 0 0 0 10px rgba(232,118,42,0);  }
+}
+
+.animate-up {
+    animation: fadeSlideUp 0.55s cubic-bezier(0.22,1,0.36,1) both;
+}
+.animate-up-delay {
+    animation: fadeSlideUp 0.55s 0.12s cubic-bezier(0.22,1,0.36,1) both;
+}
+.animate-fade {
+    animation: fadeIn 0.4s ease both;
+}
+
+/* ── TELA DE LOGIN ── */
+.login-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    animation: fadeSlideUp 0.5s cubic-bezier(0.22,1,0.36,1) both;
+}
+.login-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 16px;
+    padding: 2.4rem 2.5rem 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+}
+.login-logo-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1.8rem;
+    gap: 0.6rem;
+}
+.login-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+.login-subtitle {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    opacity: 0.55;
+    margin: 0;
+    text-align: center;
+}
+.login-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.2rem 0;
+}
+.login-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.85;
+    margin-bottom: 0.3rem;
+}
+
+/* Oculta sidebar totalmente na tela de login */
+.sidebar-hidden [data-testid="stSidebar"],
+.sidebar-hidden [data-testid="collapsedControl"] {
+    display: none !important;
+}
+
+/* Sidebar após login */
 [data-testid="stSidebar"] {
     background: var(--bg-surface) !important;
     border-right: 1px solid var(--border) !important;
+    animation: fadeIn 0.4s ease;
 }
 [data-testid="stSidebarUserContent"] { padding-top: 0 !important; }
 [data-testid="stSidebar"] label {
@@ -103,6 +194,7 @@ def inject_css():
     font-size: 1.1rem;
     font-family: var(--font-display);
     flex-shrink: 0;
+    animation: pulse-glow 2.5s infinite;
 }
 .user-info { display: flex; flex-direction: column; overflow: hidden; }
 .user-name { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -139,6 +231,11 @@ def inject_css():
 .list-row:hover { border-color: var(--accent); }
 
 hr { border-color: var(--border) !important; margin: 1.5rem 0 !important; }
+
+/* Conteúdo principal anima ao entrar */
+.main-content-enter {
+    animation: fadeSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -154,7 +251,7 @@ def section_label(text):
 
 def page_header(title, subtitle):
     st.markdown(f"""
-<div style="padding:1.5rem 0 1.25rem;margin-bottom:0.25rem;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:1.1rem;">
+<div class="animate-up" style="padding:1.5rem 0 1.25rem;margin-bottom:0.25rem;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:1.1rem;">
     <div style="width:3px;height:52px;background:linear-gradient(180deg,var(--accent) 0%,var(--accent2) 100%);border-radius:2px;flex-shrink:0;margin-top:3px;"></div>
     <div>
         <p style="margin:0 0 0.12rem;font-family:'Sora',sans-serif;font-size:0.6rem;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:var(--accent);">UFPI · PET SAÚDE / I&SD</p>
@@ -262,7 +359,6 @@ def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
         except: sai = ""
         ativ = limpar_texto(str(row.get('ATIVIDADE(S) REALIZADA(S)', '')).upper())
 
-        # CORREÇÃO 1: Estrutura If/Else tradicional para evitar que o Streamlit imprima "None" na tela
         if flip:
             pdf.set_fill_color(245, 245, 245)
         else:
@@ -291,7 +387,6 @@ def gerar_pdf(df_geral, nomes, mes, ano):
         prec = df_i['Nome do preceptor'].iloc[0] if 'Nome do preceptor' in df_i.columns and not df_i.empty else "___"
         _pagina_pdf(pdf, df_i, nome, mes, ano, prec, visto=(i == len(nomes)-1))
         
-    # CORREÇÃO 2: Conversão segura com Encoding para evitar o TypeError no Streamlit Cloud
     saida = pdf.output(dest='S')
     return saida.encode('latin-1') if isinstance(saida, str) else bytes(saida)
 
@@ -367,7 +462,7 @@ def atualizar_atividade(carimbo, nome, nova_linha):
 # ==========================================
 inject_css()
 
-# CORREÇÃO PARA LER DO STREAMLIT CLOUD (SECRETS) SEM DAR ERRO
+# Lê config de credenciais
 if "credentials" in st.secrets:
     config = {
         "credentials": {
@@ -383,32 +478,98 @@ else:
         st.error("Configurações ausentes. Verifique o arquivo config.yaml ou os Secrets na nuvem."); st.stop()
 
 auth = stauth.Authenticate(
-    config['credentials'], 
-    config['cookie']['name'], 
-    config['cookie']['key'], 
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
     config['cookie']['expiry_days']
 )
 
-if st.session_state["authentication_status"] is None or st.session_state["authentication_status"] is False:
-    st.markdown("<div style='margin-top: 5rem;'></div>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1.2, 1])
-    with c2:
-        st.markdown("<div style='text-align:center; margin-bottom: 2rem;'>", unsafe_allow_html=True)
-        try: st.image("pet-logo.png", width=180)
-        except: st.markdown("<h2 style='color:var(--accent);'>Acesso Restrito</h2>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+# ==========================================
+# TELA DE LOGIN PERSONALIZADA
+# ==========================================
+if st.session_state.get("authentication_status") is None or st.session_state.get("authentication_status") is False:
+
+    # Injeta classe para esconder sidebar completamente na tela de login
+    st.markdown("""
+    <script>
+        document.querySelector('.stApp').classList.add('sidebar-hidden');
+    </script>
+    <style>
+        [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
+        section[data-testid="stMain"] > div { padding-left: 1rem !important; padding-right: 1rem !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Centraliza o card de login
+    _, col_mid, _ = st.columns([1, 1.1, 1])
+    with col_mid:
+        st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
+
+        # Logo
+        st.markdown("""
+        <div class="login-wrapper">
+        <div class="login-card">
+        <div class="login-logo-wrap">
+        """, unsafe_allow_html=True)
+
+        try:
+            st.image("pet-logo.png", width=90)
+        except:
+            st.markdown("<span style='font-size:2.5rem;'>🏥</span>", unsafe_allow_html=True)
+
+        st.markdown("""
+            <span class="login-badge">🔒 Acesso Seguro</span>
+            <h2 class="login-title">PET Saúde · I&SD</h2>
+            <p class="login-subtitle">Sistema de Gestão Integrada de Atividades<br>UFPI · Teresina / PI</p>
+        </div>
+        <div class="login-divider"></div>
+        </div></div>
+        """, unsafe_allow_html=True)
+
+        # Formulário de login nativo do stauth (ainda necessário para validação)
         auth.login()
-        if st.session_state["authentication_status"] is False: st.error('Credenciais inválidas.')
+
+        # Feedback de credencial inválida — mais elegante
+        if st.session_state.get("authentication_status") is False:
+            st.markdown("""
+            <div style="
+                margin-top: 0.8rem;
+                background: rgba(220,38,38,0.08);
+                border: 1px solid rgba(220,38,38,0.3);
+                border-left: 3px solid #DC2626;
+                border-radius: 8px;
+                padding: 0.75rem 1rem;
+                font-size: 0.82rem;
+                color: #DC2626;
+                font-weight: 500;
+                animation: fadeSlideUp 0.3s ease both;
+            ">
+                ⚠️ Credenciais inválidas. Verifique seu usuário e senha.
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <p style="text-align:center; font-size:0.65rem; opacity:0.35; margin-top:1.5rem; font-weight:500; letter-spacing:0.05em;">
+            UFPI · PET SAÚDE I&SD — Sistema Interno v2.0
+        </p>
+        """, unsafe_allow_html=True)
 
 
 # ==========================================
-# ÁREA LOGADA
+# ÁREA LOGADA  (com transição suave)
 # ==========================================
-if st.session_state["authentication_status"]:
-    user_key = st.session_state["username"]
+if st.session_state.get("authentication_status"):
+
+    # Exibe spinner de "carregando" apenas no primeiro acesso após login
+    if not st.session_state.get("_app_loaded"):
+        with st.spinner("Carregando sistema..."):
+            time.sleep(0.6)   # breve pausa para suavizar a transição
+        st.session_state["_app_loaded"] = True
+
+    user_key  = st.session_state["username"]
     user_data = config['credentials']['usernames'][user_key]
-    role = user_data.get('role', 'monitor')
-    
+    role      = user_data.get('role', 'monitor')
+
     try: st.sidebar.image("banner-pet.png", use_container_width=True)
     except: st.sidebar.markdown("<h3 style='text-align:center; color:var(--accent); margin-top:0;'>PET SAÚDE</h3>", unsafe_allow_html=True)
     sidebar_divider()
@@ -421,17 +582,14 @@ if st.session_state["authentication_status"]:
         if not df.empty:
             st.sidebar.markdown("<p style='font-size:0.6rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-primary);opacity:0.5;'>FILTROS</p>", unsafe_allow_html=True)
             
-            # FILTRO 1: Monitores
             m_sel = st.sidebar.multiselect("Filtrar Monitores", options=sorted(df['Nome'].unique()))
             
-            # FILTRO 2: Preceptores
             lista_preceptores = []
             if 'Nome do preceptor' in df.columns:
                 lista_preceptores = sorted([p for p in df['Nome do preceptor'].unique() if pd.notna(p) and str(p).strip() != "" and str(p).lower() != "nan" and str(p).lower() != "escolher"])
             
             p_sel = st.sidebar.multiselect("Filtrar Preceptores", options=lista_preceptores)
             
-            # FILTRO 3: Período
             hoje = date.today(); sel_d = st.sidebar.date_input("Período", value=(hoje.replace(day=1), hoje))
             d1, d2 = sel_d if (isinstance(sel_d, tuple) and len(sel_d)==2) else (hoje, hoje)
 
