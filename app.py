@@ -340,8 +340,11 @@ def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
     pdf.cell(0, 7, limpar_texto("FOLHA DE FREQUENCIA"), ln=True, align='C')
     
     pdf.ln(3); mes_idx = int(mes) - 1 if 1 <= int(mes) <= 12 else 0
-    fnc = str(df_m.iloc[0]['Função']).upper() if not pd.isna(df_m.iloc[0]['Função']) else "MONITOR(A)"
-    if fnc == 'NAN' or fnc == '': fnc = "MONITOR(A)"
+    if df_m.empty or 'Função' not in df_m.columns or pd.isna(df_m.iloc[0]['Função']):
+        fnc = "MONITOR(A)"
+    else:
+        fnc = str(df_m.iloc[0]['Função']).upper()
+    if fnc in ('NAN', '', 'MONITOR', 'MONITORA'): fnc = "MONITOR(A)"
     
     for lbl, val in [("MES DE REFERENCIA", f"{meses[mes_idx].upper()} / {ano}"), ("GRUPO TUTORIAL", "Grupo 1 - Letramento p/ Usuarios SUS"), ("LOCAL", "CAPS AD - Teresina / PI"), ("PRECEPTORA", prec), (fnc, nome)]:
         pdf.set_font("Helvetica", 'B', 8); pdf.cell(44, 5, limpar_texto(f"  {lbl}:"), border=0)
@@ -382,11 +385,12 @@ def _pagina_pdf(pdf, df_m, nome, mes, ano, prec, visto=False):
 
 def gerar_pdf(df_geral, nomes, mes, ano):
     pdf = FPDF(); pdf.set_auto_page_break(auto=True, margin=15)
-    for i, nome in enumerate(nomes):
+    nomes_com_dados = [n for n in nomes if not df_geral[df_geral['Nome'] == n].empty]
+    for i, nome in enumerate(nomes_com_dados):
         pdf.add_page(); df_i = df_geral[df_geral['Nome'] == nome].copy()
         prec = df_i['Nome do preceptor'].iloc[0] if 'Nome do preceptor' in df_i.columns and not df_i.empty else "___"
-        _pagina_pdf(pdf, df_i, nome, mes, ano, prec, visto=(i == len(nomes)-1))
-        
+        _pagina_pdf(pdf, df_i, nome, mes, ano, prec, visto=(i == len(nomes_com_dados)-1))
+
     saida = pdf.output(dest='S')
     return saida.encode('latin-1') if isinstance(saida, str) else bytes(saida)
 
