@@ -560,11 +560,11 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
             </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("""
-        <p style="text-align:center; font-size:0.65rem; opacity:0.35; margin-top:1.5rem; font-weight:500; letter-spacing:0.05em;">
-            UFPI · PET SAÚDE I&SD — Sistema Interno v2.0
-        </p>
-        """, unsafe_allow_html=True)
+        # st.markdown("""
+        # <p style="text-align:center; font-size:0.65rem; opacity:0.35; margin-top:1.5rem; font-weight:500; letter-spacing:0.05em;">
+        #     UFPI · PET SAÚDE I&SD — Sistema Interno v2.0
+        # </p>
+        # """, unsafe_allow_html=True)
 
         # Feedback de credencial inválida — mais elegante
         if st.session_state.get("authentication_status") is False:
