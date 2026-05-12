@@ -489,7 +489,7 @@ auth = stauth.Authenticate(
 # ==========================================
 if st.session_state.get("authentication_status") is None or st.session_state.get("authentication_status") is False:
 
-    # Injeta classe para esconder sidebar completamente na tela de login
+    # Injeta classe para esconder sidebar e estilizar a coluna central como o Card
     st.markdown("""
     <script>
         document.querySelector('.stApp').classList.add('sidebar-hidden');
@@ -497,33 +497,73 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
     <style>
         [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
         section[data-testid="stMain"] > div { padding-left: 1rem !important; padding-right: 1rem !important; }
+        
+        /* Transforma a coluna do meio do Streamlit no próprio Card de Login */
+        div[data-testid="column"]:nth-of-type(2) {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--accent);
+            border-radius: 16px;
+            padding: 2.4rem 2.5rem 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+            animation: fadeSlideUp 0.5s cubic-bezier(0.22,1,0.36,1) both;
+            margin-top: 5vh;
+        }
     </style>
     """, unsafe_allow_html=True)
 
     # Centraliza o card de login
     _, col_mid, _ = st.columns([1, 1.1, 1])
+    
     with col_mid:
-        st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
+        # Lendo a logo em Base64 para manter o HTML unificado (evita quebra do DOM)
+        import base64
+        import os
+        
+        img_html = "<span style='font-size:2.5rem;'>🏥</span>"
+        if os.path.exists("pet-logo.png"):
+            with open("pet-logo.png", "rb") as img_file:
+                b64_img = base64.b64encode(img_file.read()).decode()
+            img_html = f'<img src="data:image/png;base64,{b64_img}" width="90">'
 
-        # Logo
-        st.markdown("""
-        <div class="login-wrapper">
-        <div class="login-card">
-        <div class="login-logo-wrap">
-        """, unsafe_allow_html=True)
-
-        try:
-            st.image("pet-logo.png", width=90)
-        except:
-            st.markdown("<span style='font-size:2.5rem;'>🏥</span>", unsafe_allow_html=True)
-
-        st.markdown("""
-            <span class="login-badge">🔒 Acesso Seguro</span>
+        # Um único bloco Markdown contendo todo o Header
+        st.markdown(f"""
+        <div class="login-logo-wrap" style="display:flex; flex-direction:column; align-items:center; margin-bottom:1.8rem; gap:0.6rem;">
+            {img_html}
+            <span class="login-badge" style="margin-top: 0.6rem;">🔒 Acesso Seguro</span>
             <h2 class="login-title">PET Saúde · I&SD</h2>
             <p class="login-subtitle">Sistema de Gestão Integrada de Atividades<br>UFPI · Teresina / PI</p>
         </div>
         <div class="login-divider"></div>
-        </div></div>
+        """, unsafe_allow_html=True)
+
+        # Formulário de login nativo do stauth 
+        # (Ele agora ficará perfeitamente contido dentro da coluna estlizada)
+        auth.login()
+
+        # Feedback de credencial inválida
+        if st.session_state.get("authentication_status") is False:
+            st.markdown("""
+            <div style="
+                margin-top: 0.8rem;
+                background: rgba(220,38,38,0.08);
+                border: 1px solid rgba(220,38,38,0.3);
+                border-left: 3px solid #DC2626;
+                border-radius: 8px;
+                padding: 0.75rem 1rem;
+                font-size: 0.82rem;
+                color: #DC2626;
+                font-weight: 500;
+                animation: fadeSlideUp 0.3s ease both;
+            ">
+                ⚠️ Credenciais inválidas. Verifique seu usuário e senha.
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <p style="text-align:center; font-size:0.65rem; opacity:0.35; margin-top:1.5rem; font-weight:500; letter-spacing:0.05em;">
+            UFPI · PET SAÚDE I&SD — Sistema Interno v2.0
+        </p>
         """, unsafe_allow_html=True)
 
         # Formulário de login nativo do stauth (ainda necessário para validação)
