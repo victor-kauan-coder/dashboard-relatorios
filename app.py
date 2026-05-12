@@ -485,20 +485,164 @@ auth = stauth.Authenticate(
 )
 
 # ==========================================
+# SISTEMA DE TRANSIÇÃO (cortina client-side)
+# ==========================================
+# Esta lógica injeta UMA VEZ um <div id="pet-curtain"> fixo no topo do DOM.
+# Ele cobre a tela com a cor de fundo ANTES do rerun, eliminando qualquer flash.
+# O JS observa mudanças no DOM (MutationObserver) para saber quando o Streamlit
+# terminou de re-renderizar e então faz o fade-out da cortina.
+st.markdown("""
+<style>
+/* ── Cortina de transição ── */
+#pet-curtain {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: var(--background-color, #0e1117);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.32s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+#pet-curtain.visible {
+    opacity: 1;
+    pointer-events: all;
+}
+#pet-curtain .ctn-logo { font-size: 2.6rem; }
+#pet-curtain .ctn-bar-track {
+    width: 140px; height: 2px;
+    background: rgba(150,150,150,0.2);
+    border-radius: 99px; overflow: hidden;
+}
+#pet-curtain .ctn-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg,#E8762A,#2A6AE8);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0s;
+}
+#pet-curtain .ctn-bar-fill.running {
+    width: 85%;
+    transition: width 1.8s cubic-bezier(0.4,0,0.2,1);
+}
+#pet-curtain .ctn-bar-fill.done {
+    width: 100%;
+    transition: width 0.2s ease;
+}
+#pet-curtain .ctn-label {
+    font-family: 'Sora', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+}
+</style>
+
+<div id="pet-curtain">
+    <div class="ctn-logo">🏥</div>
+    <div class="ctn-bar-track"><div class="ctn-bar-fill" id="ctn-bar"></div></div>
+    <div class="ctn-label" id="ctn-label">Carregando…</div>
+</div>
+
+<script>
+(function() {
+    // ── Utilitários ──
+    const curtain  = document.getElementById('pet-curtain');
+    const bar      = document.getElementById('ctn-bar');
+    const label    = document.getElementById('ctn-label');
+    if (!curtain) return;
+
+    let _hiding = false;
+
+    function showCurtain(msg) {
+        _hiding = false;
+        label.textContent = msg || 'Carregando…';
+        curtain.classList.add('visible');
+        // Inicia animação da barra
+        bar.classList.remove('running','done');
+        void bar.offsetWidth;                   // força reflow
+        bar.classList.add('running');
+    }
+
+    function hideCurtain() {
+        if (_hiding) return;
+        _hiding = true;
+        bar.classList.remove('running');
+        bar.classList.add('done');
+        setTimeout(() => {
+            curtain.classList.remove('visible');
+            bar.classList.remove('done');
+            bar.style.width = '0%';
+        }, 350);
+    }
+
+    // ── Detecta quando o Streamlit terminou de renderizar ──
+    // O Streamlit adiciona/remove o atributo aria-busy no #root
+    function waitForStreamlitReady(cb) {
+        const root = window.parent.document.querySelector('[data-testid="stApp"]') || document.body;
+        let settled = null;
+
+        const mo = new MutationObserver(() => {
+            // Debounce: espera 120ms sem mutações para considerar "estável"
+            clearTimeout(settled);
+            settled = setTimeout(() => {
+                mo.disconnect();
+                cb();
+            }, 120);
+        });
+        mo.observe(root, { childList: true, subtree: true, attributes: true });
+
+        // Safety net: se demorar mais de 5s, esconde de qualquer forma
+        setTimeout(() => { mo.disconnect(); cb(); }, 5000);
+    }
+
+    // ── Intercepta cliques em botões de submit do stauth (Login / Sair) ──
+    function interceptAuthButtons() {
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const txt = btn.textContent.trim().toLowerCase();
+
+            // Botão de login
+            if (txt === 'login' || txt === 'entrar') {
+                showCurtain('Verificando credenciais…');
+                waitForStreamlitReady(hideCurtain);
+            }
+
+            // Botão de logout (stauth usa "sair da conta" ou texto customizável)
+            if (txt.includes('sair') || txt === 'logout' || txt === 'log out') {
+                showCurtain('Encerrando sessão…');
+                waitForStreamlitReady(hideCurtain);
+            }
+        }, true);
+    }
+
+    // ── Inicialização ──
+    // Aguarda o DOM estar pronto (o script pode rodar antes do body completo)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', interceptAuthButtons);
+    } else {
+        interceptAuthButtons();
+    }
+})();
+</script>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
 # TELA DE LOGIN PERSONALIZADA
 # ==========================================
 if st.session_state.get("authentication_status") is None or st.session_state.get("authentication_status") is False:
 
-    # Injeta classe para esconder sidebar e estilizar a coluna central como o Card
     st.markdown("""
-    <script>
-        document.querySelector('.stApp').classList.add('sidebar-hidden');
-    </script>
     <style>
         [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
         section[data-testid="stMain"] > div { padding-left: 1rem !important; padding-right: 1rem !important; }
-        
-        /* Transforma a coluna do meio do Streamlit no próprio Card de Login */
         div[data-testid="column"]:nth-of-type(2) {
             background: var(--bg-surface);
             border: 1px solid var(--border);
@@ -512,21 +656,18 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
     </style>
     """, unsafe_allow_html=True)
 
-    # Centraliza o card de login
     _, col_mid, _ = st.columns([1, 1.1, 1])
-    
+
     with col_mid:
-        # Lendo a logo em Base64 para manter o HTML unificado (evita quebra do DOM)
         import base64
         import os
-        
+
         img_html = "<span style='font-size:2.5rem;'>🏥</span>"
         if os.path.exists("pet-logo.png"):
             with open("pet-logo.png", "rb") as img_file:
                 b64_img = base64.b64encode(img_file.read()).decode()
             img_html = f'<img src="data:image/png;base64,{b64_img}" width="90">'
 
-        # Um único bloco Markdown contendo todo o Header
         st.markdown(f"""
         <div class="login-logo-wrap" style="display:flex; flex-direction:column; align-items:center; margin-bottom:1.8rem; gap:0.6rem;">
             {img_html}
@@ -537,11 +678,8 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
         <div class="login-divider"></div>
         """, unsafe_allow_html=True)
 
-        # Formulário de login nativo do stauth 
-        # (Ele agora ficará perfeitamente contido dentro da coluna estlizada)
         auth.login()
 
-        # Feedback de credencial inválida — mais elegante
         if st.session_state.get("authentication_status") is False:
             st.markdown("""
             <div style="
@@ -568,120 +706,15 @@ if st.session_state.get("authentication_status") is None or st.session_state.get
 
 
 # ==========================================
-# ÁREA LOGADA  (com transição suave)
+# ÁREA LOGADA
 # ==========================================
 if st.session_state.get("authentication_status"):
 
-    # ── Detecta o exato momento do login e exibe splash screen ──
-    just_logged_in = not st.session_state.get("_app_loaded", False)
-
-    if just_logged_in:
-        # Registra que o app já foi carregado para sessões futuras
-        st.session_state["_app_loaded"] = True
-        st.session_state["_show_splash"] = True
-        st.rerun()
-
-    if st.session_state.get("_show_splash"):
-        st.session_state["_show_splash"] = False
-
-        import base64
-        img_html = "<span style='font-size:3rem;'>🏥</span>"
-        if os.path.exists("pet-logo.png"):
-            with open("pet-logo.png", "rb") as img_file:
-                b64_img = base64.b64encode(img_file.read()).decode()
-            img_html = f'<img src="data:image/png;base64,{b64_img}" width="80" style="margin-bottom:0.5rem;">'
-
-        nome_usuario = st.session_state.get("name", "")
-
-        st.markdown(f"""
-        <style>
-            [data-testid="stSidebar"], [data-testid="collapsedControl"] {{ display: none !important; }}
-            .splash-overlay {{
-                position: fixed; inset: 0;
-                background: var(--bg-base);
-                display: flex; flex-direction: column;
-                align-items: center; justify-content: center;
-                z-index: 9999;
-                animation: splashFadeOut 0.55s 1.5s cubic-bezier(0.4,0,0.2,1) forwards;
-            }}
-            @keyframes splashFadeOut {{
-                from {{ opacity: 1; transform: scale(1); }}
-                to   {{ opacity: 0; transform: scale(1.04); pointer-events: none; }}
-            }}
-            .splash-logo {{
-                animation: splashPop 0.5s cubic-bezier(0.22,1,0.36,1) both;
-            }}
-            @keyframes splashPop {{
-                from {{ opacity: 0; transform: scale(0.7); }}
-                to   {{ opacity: 1; transform: scale(1); }}
-            }}
-            .splash-text {{
-                animation: splashPop 0.5s 0.15s cubic-bezier(0.22,1,0.36,1) both;
-                text-align: center;
-            }}
-            .splash-bar-track {{
-                width: 180px; height: 3px;
-                background: var(--border);
-                border-radius: 99px;
-                overflow: hidden;
-                margin-top: 1.8rem;
-                animation: splashPop 0.5s 0.25s cubic-bezier(0.22,1,0.36,1) both;
-            }}
-            .splash-bar-fill {{
-                height: 100%;
-                background: linear-gradient(90deg, var(--accent), var(--accent2));
-                border-radius: 99px;
-                animation: splashBarLoad 1.2s 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
-                width: 0%;
-            }}
-            @keyframes splashBarLoad {{
-                from {{ width: 0%; }}
-                to   {{ width: 100%; }}
-            }}
-        </style>
-        <div class="splash-overlay">
-            <div class="splash-logo">{img_html}</div>
-            <div class="splash-text">
-                <p style="font-family:'Sora',sans-serif; font-size:1.2rem; font-weight:700;
-                           color:var(--text-primary); margin:0 0 0.25rem; letter-spacing:-0.02em;">
-                    PET Saúde · I&SD
-                </p>
-                <p style="font-size:0.75rem; opacity:0.55; margin:0;">
-                    Bem-vindo, <strong>{nome_usuario}</strong>
-                </p>
-            </div>
-            <div class="splash-bar-track">
-                <div class="splash-bar-fill"></div>
-            </div>
-        </div>
-        <script>
-            // Força o rerun após a animação terminar (2.1s = 1.5s delay + 0.55s fade + buffer)
-            setTimeout(() => window.parent.document.querySelector('[data-testid="stApp"]')
-                .dispatchEvent(new Event('reload')), 2100);
-        </script>
-        """, unsafe_allow_html=True)
-        time.sleep(2.0)
-        st.rerun()
+    st.session_state["_app_loaded"] = True
 
     user_key  = st.session_state["username"]
     user_data = config['credentials']['usernames'][user_key]
     role      = user_data.get('role', 'monitor')
-
-    # Anima a entrada do conteúdo principal (sidebar + página)
-    st.markdown("""
-    <style>
-        section[data-testid="stMain"] > div > div {
-            animation: fadeSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
-        }
-        [data-testid="stSidebar"] {
-            animation: fadeSlideIn 0.4s cubic-bezier(0.22,1,0.36,1) both;
-        }
-        @keyframes fadeSlideIn {
-            from { opacity: 0; transform: translateX(-18px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-    </style>
-    """, unsafe_allow_html=True)
 
     try: st.sidebar.image("banner-pet.png", use_container_width=True)
     except: st.sidebar.markdown("<h3 style='text-align:center; color:var(--accent); margin-top:0;'>PET SAÚDE</h3>", unsafe_allow_html=True)
@@ -694,8 +727,18 @@ if st.session_state.get("authentication_status"):
         df = carregar_dados()
         if not df.empty:
             st.sidebar.markdown("<p style='font-size:0.6rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-primary);opacity:0.5;'>FILTROS</p>", unsafe_allow_html=True)
-            
-            m_sel = st.sidebar.multiselect("Filtrar Monitores", options=sorted(df['Nome'].unique()))
+
+            # Apenas monitores com conta ativa no sistema (role == 'monitor')
+            monitores_ativos = sorted([
+                dados.get('name', usuario)
+                for usuario, dados in config['credentials']['usernames'].items()
+                if dados.get('role', 'monitor') == 'monitor'
+            ])
+            # Garante que só aparecem nomes que também têm registros na planilha
+            nomes_na_planilha = set(df['Nome'].unique())
+            monitores_ativos = [n for n in monitores_ativos if n in nomes_na_planilha] or monitores_ativos
+
+            m_sel = st.sidebar.multiselect("Filtrar Monitores", options=monitores_ativos)
             
             lista_preceptores = []
             if 'Nome do preceptor' in df.columns:
