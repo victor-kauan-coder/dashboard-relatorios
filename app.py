@@ -501,7 +501,7 @@ st.markdown("""
     background: var(--background-color, #0e1117);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.32s cubic-bezier(0.4,0,0.2,1);
+    transition: opacity 0.38s cubic-bezier(0.4,0,0.2,1);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -509,7 +509,7 @@ st.markdown("""
     gap: 0.75rem;
 }
 #pet-curtain.visible {
-    opacity: 1;
+    opacity: 1 !important;
     pointer-events: all;
 }
 #pet-curtain .ctn-logo { font-size: 2.6rem; }
@@ -526,20 +526,20 @@ st.markdown("""
     transition: width 0s;
 }
 #pet-curtain .ctn-bar-fill.running {
-    width: 85%;
-    transition: width 1.8s cubic-bezier(0.4,0,0.2,1);
+    width: 88%;
+    transition: width 1.6s cubic-bezier(0.4,0,0.2,1);
 }
 #pet-curtain .ctn-bar-fill.done {
     width: 100%;
-    transition: width 0.2s ease;
+    transition: width 0.18s ease;
 }
 #pet-curtain .ctn-label {
     font-family: 'Sora', sans-serif;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.35);
 }
 </style>
 
@@ -551,70 +551,101 @@ st.markdown("""
 
 <script>
 (function() {
-    // ── Utilitários ──
-    const curtain  = document.getElementById('pet-curtain');
-    const bar      = document.getElementById('ctn-bar');
-    const label    = document.getElementById('ctn-label');
+    /* ── refs ── */
+    const curtain = document.getElementById('pet-curtain');
+    const bar     = document.getElementById('ctn-bar');
+    const label   = document.getElementById('ctn-label');
     if (!curtain) return;
 
-    let _hiding = false;
+    const MIN_VISIBLE_MS = 900;   // cortina fica no mínimo 900ms para evitar flash
+    let _showAt   = 0;
+    let _hiding   = false;
+    let _safeTimer = null;
 
+    /* ── mostra cortina imediatamente ── */
     function showCurtain(msg) {
         _hiding = false;
+        clearTimeout(_safeTimer);
         label.textContent = msg || 'Carregando…';
-        curtain.classList.add('visible');
-        // Inicia animação da barra
-        bar.classList.remove('running','done');
-        void bar.offsetWidth;                   // força reflow
+
+        // Garante que está visível ANTES do rerun (síncrono)
+        curtain.style.transition = 'none';
+        curtain.style.opacity    = '1';
+        curtain.style.pointerEvents = 'all';
+        void curtain.offsetWidth;  // força paint imediato
+        curtain.style.transition = '';
+
+        bar.classList.remove('running', 'done');
+        void bar.offsetWidth;
         bar.classList.add('running');
+
+        _showAt = Date.now();
     }
 
+    /* ── esconde com fade após tempo mínimo ── */
     function hideCurtain() {
         if (_hiding) return;
-        _hiding = true;
-        bar.classList.remove('running');
-        bar.classList.add('done');
-        setTimeout(() => {
-            curtain.classList.remove('visible');
-            bar.classList.remove('done');
-            bar.style.width = '0%';
-        }, 350);
+        const elapsed = Date.now() - _showAt;
+        const wait    = Math.max(0, MIN_VISIBLE_MS - elapsed);
+
+        _safeTimer = setTimeout(() => {
+            _hiding = true;
+            bar.classList.remove('running');
+            bar.classList.add('done');
+            setTimeout(() => {
+                curtain.style.opacity    = '0';
+                curtain.style.pointerEvents = 'none';
+                setTimeout(() => {
+                    bar.classList.remove('done');
+                    bar.style.width = '0%';
+                    _hiding = false;
+                }, 400);
+            }, 180);
+        }, wait);
     }
 
-    // ── Detecta quando o Streamlit terminou de renderizar ──
-    // O Streamlit adiciona/remove o atributo aria-busy no #root
+    /* ── detecta quando o Streamlit terminou de renderizar ──
+       Estratégia: observa o WebSocket do Streamlit. Quando uma mensagem
+       do tipo "sessionStatusChanged" chega com scriptIsRunning=false,
+       o script terminou. Fallback: MutationObserver com debounce longo. */
     function waitForStreamlitReady(cb) {
-        const root = window.parent.document.querySelector('[data-testid="stApp"]') || document.body;
-        let settled = null;
+        let done = false;
+        function finish() { if (!done) { done = true; cb(); } }
 
-        const mo = new MutationObserver(() => {
-            // Debounce: espera 120ms sem mutações para considerar "estável"
-            clearTimeout(settled);
-            settled = setTimeout(() => {
-                mo.disconnect();
-                cb();
-            }, 120);
+        /* Tentativa 1: ouvir o CustomEvent que o Streamlit despacha */
+        const onStatus = (e) => {
+            if (e.detail && e.detail.scriptIsRunning === false) {
+                window.removeEventListener('streamlit:scriptFinished', onStatus);
+                finish();
+            }
+        };
+        window.addEventListener('streamlit:scriptFinished', onStatus);
+
+        /* Tentativa 2: MutationObserver com debounce de 400ms */
+        const root = document.querySelector('[data-testid="stApp"]') || document.body;
+        let timer  = null;
+        const mo   = new MutationObserver(() => {
+            clearTimeout(timer);
+            timer = setTimeout(() => { mo.disconnect(); finish(); }, 400);
         });
-        mo.observe(root, { childList: true, subtree: true, attributes: true });
+        mo.observe(root, { childList: true, subtree: true, attributes: false });
 
-        // Safety net: se demorar mais de 5s, esconde de qualquer forma
-        setTimeout(() => { mo.disconnect(); cb(); }, 5000);
+        /* Safety net: 6s */
+        setTimeout(finish, 6000);
     }
 
-    // ── Intercepta cliques em botões de submit do stauth (Login / Sair) ──
+    /* ── intercepta cliques nos botões de auth ── */
     function interceptAuthButtons() {
         document.addEventListener('click', function(e) {
             const btn = e.target.closest('button');
             if (!btn) return;
             const txt = btn.textContent.trim().toLowerCase();
 
-            // Botão de login
             if (txt === 'login' || txt === 'entrar') {
                 showCurtain('Verificando credenciais…');
                 waitForStreamlitReady(hideCurtain);
             }
 
-            // Botão de logout (stauth usa "sair da conta" ou texto customizável)
             if (txt.includes('sair') || txt === 'logout' || txt === 'log out') {
                 showCurtain('Encerrando sessão…');
                 waitForStreamlitReady(hideCurtain);
@@ -622,8 +653,6 @@ st.markdown("""
         }, true);
     }
 
-    // ── Inicialização ──
-    // Aguarda o DOM estar pronto (o script pode rodar antes do body completo)
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', interceptAuthButtons);
     } else {
@@ -758,7 +787,10 @@ if st.session_state.get("authentication_status"):
             if m_sel and not df_f.empty:
                 sidebar_divider()
                 st.sidebar.markdown("<p style='font-size:0.6rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-primary);opacity:0.5;'>EXPORTAR PDF</p>", unsafe_allow_html=True)
-                pdf_b = gerar_pdf(df_f, m_sel, df_f['Data da atividade'].iloc[-1].month, df_f['Data da atividade'].iloc[-1].year)
+                # Usa a data mais recente do filtro para o PDF; fallback para d1 se df_f ficar vazio
+                datas_validas = df_f['Data da atividade'].dropna()
+                ref_date = datas_validas.iloc[-1] if not datas_validas.empty else pd.Timestamp(d2)
+                pdf_b = gerar_pdf(df_f, m_sel, ref_date.month, ref_date.year)
                 st.sidebar.download_button(f"Baixar Frequências ({len(m_sel)})", pdf_b, f"Frequencias_PET.pdf", "application/pdf")
 
             page_header("Painel de Gestão", "Monitoramento centralizado de atividades e frequências.")
@@ -910,7 +942,13 @@ if st.session_state.get("authentication_status"):
 
                     else:
                         st.markdown("<p style='font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;'>Selecione [ Detalhes ] para visualizar a entrada completa ou [ Editar ] para corrigir informações.</p>", unsafe_allow_html=True)
-                        f_ini, f_fim = st.date_input("Filtrar Período de Sistema:", value=(date.today().replace(day=1), date.today()))
+                        _date_range = st.date_input("Filtrar Período de Sistema:", value=(date.today().replace(day=1), date.today()))
+                        if isinstance(_date_range, (list, tuple)) and len(_date_range) == 2:
+                            f_ini, f_fim = _date_range
+                        elif isinstance(_date_range, (list, tuple)) and len(_date_range) == 1:
+                            f_ini = f_fim = _date_range[0]
+                        else:
+                            f_ini = f_fim = _date_range if isinstance(_date_range, date) else date.today()
                         df_filt = df_meu[(df_meu['Data da atividade'].dt.date >= f_ini) & (df_meu['Data da atividade'].dt.date <= f_fim)]
                         df_filt = df_filt.sort_values('Data da atividade', ascending=False)
                         
